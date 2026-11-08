@@ -1,0 +1,10 @@
+{
+  "name": "record-shop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "api": "pnpm --filter @record-shop/api",
+    "dev:api": "pnpm --filter @record-shop/api dev",
+    "test:api": "pnpm --filter @record-shop/api test"
+  }
+}
