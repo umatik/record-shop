@@ -5,6 +5,8 @@
   "scripts": {
     "api": "pnpm --filter @record-shop/api",
     "dev:api": "pnpm --filter @record-shop/api dev",
-    "test:api": "pnpm --filter @record-shop/api test"
+    "test:api": "pnpm --filter @record-shop/api test",
+    "admin": "pnpm --filter @record-shop/admin",
+    "dev:admin": "pnpm --filter @record-shop/admin dev"
   }
 }

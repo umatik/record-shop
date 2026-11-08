@@ -1,0 +1,17 @@
+/*
+ * Logo to czarny rysunek na białym tle (PNG bez przezroczystości).
+ * multiply ukrywa białe tło w jasnym motywie; w ciemnym odwracamy kolory, a screen ukrywa czarne tło.
+ */
+.logo {
+  mix-blend-mode: multiply;
+}
+
+[data-mantine-color-scheme="dark"] .logo {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}
+
+/* Szary tekst pomocniczy ciemniejszy niż domyślny, żeby był czytelny także w słabym świetle. */
+:root[data-mantine-color-scheme="light"] {
+  --mantine-color-dimmed: var(--mantine-color-gray-7);
+}

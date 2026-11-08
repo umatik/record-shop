@@ -8,7 +8,11 @@ Monorepo (pnpm workspaces) for a small online record shop. The guiding principle
 a small shop but open to growth, without overengineering. Docs and UI copy are in Polish.
 
 - `apps/api`: the REST API (`@record-shop/api`). Its own `CLAUDE.md` covers architecture, conventions and tests.
-- `apps/admin`: the admin panel SPA, not started yet. `apps/admin/NOTES.md` lists what the panel needs from the API.
+- `apps/admin`: the admin panel (`@record-shop/admin`), a prototype: Next.js 16 (App Router), Mantine 9, TanStack
+  Query. Mobile first is a hard rule for every screen. The browser talks only to the panel: `/api/auth/*` logs in and
+  keeps the API JWT in an httpOnly cookie, `/api/proxy/*` forwards requests to the API (`API_URL`) with that token,
+  and `src/proxy.ts` redirects to `/login` without a session. `apps/admin/NOTES.md` lists what the panel needs from
+  the API (written before the switch from Vite to Next).
 - `docs/audit`: past audit reports of the API (historical; line numbers refer to old paths).
 
 ## Commands
@@ -17,7 +21,8 @@ a small shop but open to growth, without overengineering. Docs and UI copy are i
 pnpm install                # install all workspaces (run at repo root)
 docker compose up -d        # Postgres, Redis, Mailpit shared by all apps (run at repo root)
 pnpm api <script>           # run an API script from the root, e.g. `pnpm api test`
-pnpm dev:api                # shortcut for the API dev server
+pnpm dev:api                # shortcut for the API dev server (:3000)
+pnpm dev:admin              # admin panel dev server (:3001), needs the API running
 ```
 
 App scripts read `.env` / `.env.test` and resolve `./uploads` relative to the app directory, so run them inside the

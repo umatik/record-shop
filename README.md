@@ -5,7 +5,7 @@ Sklep internetowy z płytami winylowymi (reggae, nowe i używane), koszulkami i 
 | Katalog       | Co to                                                                              |
 |---------------|------------------------------------------------------------------------------------|
 | `apps/api`    | REST API: Node.js + TypeScript, Express 5, PostgreSQL, Redis. [README](apps/api/README.md) |
-| `apps/admin`  | Panel admina (w budowie). [Notatki](apps/admin/NOTES.md)                           |
+| `apps/admin`  | Panel admina (prototyp): Next.js, Mantine. [Notatki](apps/admin/NOTES.md)                 |
 | `docs/audit`  | Raporty z audytów API                                                              |
 
 Sklep dla klientów (`apps/shop`) przyjdzie później.
@@ -34,3 +34,10 @@ pnpm api migrate
 ```bash
 pnpm dev:api
 ```
+
+```bash
+pnpm dev:admin
+```
+
+Panel działa na `http://localhost:3001` i rozmawia z API przez własny serwer (adres API w `API_URL`, domyślnie
+`http://localhost:3000`).
