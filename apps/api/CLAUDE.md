@@ -11,7 +11,8 @@ overengineering.
 
 ## Commands
 
-The package manager is pnpm.
+The package manager is pnpm. This app lives in `apps/api` of the RecordShop monorepo: run the commands below from
+this directory (`docker compose` and `pnpm install` from the repo root).
 
 ```bash
 docker compose up -d        # Postgres :5432, Redis :6379, Mailpit (SMTP :1025, UI :8025)

@@ -27,7 +27,8 @@ w Swaggerze: `http://localhost:3000/api-docs`, a sama specyfikacja OpenAPI (np. 
 
 ## Szybki start
 
-Wymagania: Node.js, pnpm, Docker.
+Wymagania: Node.js, pnpm, Docker. API jest częścią monorepo RecordShop: `pnpm install` i `docker compose` uruchamia się w
+katalogu głównym repo, a pozostałe polecenia w `apps/api`.
 
 ```bash
 pnpm install

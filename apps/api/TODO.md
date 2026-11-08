@@ -147,7 +147,7 @@ Przebieg: zdjęcie → nowy produkt → edycja wariantu → media wariantu → p
 
 ## 9b. Audyt zewnętrzny (2026-11-08)
 
-Raport: `AUDIT_RESULTS.md` (audyt commita `d31022a`). Wszystkie 5 zgłoszeń potwierdzone w kodzie i poprawione, każde z testem regresji.
+Raport: `docs/audit/AUDIT_RESULTS.md` (audyt commita `d31022a`). Wszystkie 5 zgłoszeń potwierdzone w kodzie i poprawione, każde z testem regresji.
 
 - [x] **P1 – wyścig usuwania szkicu z publikacją i zakupem kasował pozycje zamówienia.** Zmiany, od których zależy, czy produkt można kupić albo trwale usunąć (publikacja, usunięcie produktu lub wariantu), zaczynają od `lockForUpdate` (`SELECT … FOR UPDATE` na produkcie); zamówienie bierze na produkcie `FOR SHARE`, a wycofanie publikacji blokuje wiersz samym `UPDATE`. Migracja 017: `order_items.product_variant_id` z `ON DELETE RESTRICT` zamiast `CASCADE`; gdyby baza odmówiła trwałego usunięcia, serwis cofa się do punktu zapisu i usuwa miękko. Test: `api/concurrency.api.test.ts` (bariera w połowie usuwania, przed poprawką odtwarzał błąd).
 - [x] **P1 – niepoprawny JSON wysłany do `/settings` zapisywał sekret w logach.** Handler błędów loguje tylko bezpieczny opis (`src/errors/loggable-error.ts`): przy błędach parsera bez body i komunikatu, przy innych nazwa, komunikat, status, stos tylko dla 5xx i skrócone przyczyny. Odpowiedź na niepoprawny JSON to ogólne „Malformed JSON”. To samo w logu nieudanego rozpoznawania płyty.
@@ -155,7 +155,7 @@ Raport: `AUDIT_RESULTS.md` (audyt commita `d31022a`). Wszystkie 5 zgłoszeń pot
 - [x] **P3 – zdjęcie labela starsze niż 24 h dało się podpiąć.** `claim()` sprawdza wiek w tym samym zapytaniu (zegar bazy); stała `PENDING_UPLOAD_TTL_MS` jest w jednym miejscu (`pending-upload.interface.ts`).
 - [x] **P3 – zły format odpowiedzi wyszukiwania Discogs dawał 500.** `search()` używa `safeParse` i zgłasza `ExternalServiceError` (502).
 
-Ponowny audyt: `AUDIT_RECHECK.md`. Poprzednie poprawki potwierdzone; 3 nowe zgłoszenia, wszystkie poprawione z testami regresji.
+Ponowny audyt: `docs/audit/AUDIT_RECHECK.md`. Poprzednie poprawki potwierdzone; 3 nowe zgłoszenia, wszystkie poprawione z testami regresji.
 
 - [x] **R1 (P2) – token z błędu `fetch` w logach.** Token ze znakiem nowej linii przechodził walidację, `fetch` odrzucał nagłówek i cytował go w komunikacie, a sanitizer kopiował komunikat i stos przyczyny. Teraz: klucz Claude i token Discogs przyjmują tylko widoczne znaki ASCII bez spacji, User-Agent tylko drukowalne ASCII (dotyczy też wartości z env); z przyczyn błędów (`cause`, `originalError`) logujemy tylko nazwę, kod i status.
 - [x] **R2 (P2) – spóźniony zapis przywracał nieaktualną listę w cache.** Cache ma generacje (`Cache.generation()`, klucz `cache-generation:products` w Redisie, wspólny dla wielu instancji): `clear()` najpierw ustawia nową losową generację, a lista buduje klucz z generacji odczytanej przed pobraniem danych, więc zapis sprzed unieważnienia trafia do generacji, której nikt już nie czyta. Lista i licznik czytane w jednej transakcji `REPEATABLE READ READ ONLY`.
