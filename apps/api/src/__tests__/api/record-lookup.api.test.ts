@@ -28,7 +28,19 @@ describe("Record lookup API", () => {
     expect(response.status).toBe(403);
   });
 
-  it("should validate the catalog number before calling Discogs", async () => {
+  it("should accept an artist and title instead of a catalog number", async () => {
+    const token = await loginAsAdmin();
+
+    const response = await request(app)
+      .get("/products/lookup")
+      .query({ artist: "Patrick Andy", title: "Youths Of Today", catalogNumber: "" })
+      .set("Authorization", `Bearer ${token}`);
+
+    // Walidacja przechodzi; Discogs jest w testach wyłączony.
+    expect(response.status).toBe(503);
+  });
+
+  it("should require a catalog number, an artist or a title before calling Discogs", async () => {
     const token = await loginAsAdmin();
 
     const response = await request(app)

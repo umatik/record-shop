@@ -204,14 +204,48 @@ describe("RecordLookupService", () => {
       expect((error as PhotoLookupError).photoUploadIds).toHaveLength(1);
     });
 
-    it("should fall back to the catalog number alone, then to artist and title", async () => {
+    it("should fall back to the catalog number alone, then to the title with each artist, then to the title", async () => {
       await service.lookupByPhoto([{ data: Buffer.from("x"), mediaType: "image/png" }]);
 
       expect(discogs.search.mock.calls.map((call) => call[0])).toEqual([
         { catno: "ZV-7-006", label: "Zulu Vibes" },
         { catno: "ZV-7-006" },
         { artist: "Bunnington Judah", releaseTitle: "Jah Prophecy" },
+        { artist: "Zulu Vibes", releaseTitle: "Jah Prophecy" },
+        { releaseTitle: "Jah Prophecy", label: "Zulu Vibes" },
+        { releaseTitle: "Jah Prophecy" },
       ]);
+    });
+
+    it("should find a single without a catalog number when the label names the producer as an artist", async () => {
+      // Singiel Patricka Andy na wytwórni Vivian Jackson: Discogs nie ma numeru katalogowego, a Claude
+      // wymienia producenta jako pierwszego artystę.
+      labelReader.read.mockResolvedValue({
+        ...zuluReading,
+        artists: ["Vivian Jackson", "Patrick Andy", "patrick andy "],
+        title: "Youths Of Today",
+        label: "Vivian Jackson",
+        catalogNumber: null,
+      });
+      discogs.search.mockImplementation(async (params) =>
+        params.artist === "Patrick Andy" ? [zuluSearchResult] : [],
+      );
+
+      const result = await service.lookupByPhoto([{ data: Buffer.from("x"), mediaType: "image/png" }]);
+
+      expect(discogs.search.mock.calls.map((call) => call[0])).toEqual([
+        { artist: "Vivian Jackson", releaseTitle: "Youths Of Today" },
+        { artist: "Patrick Andy", releaseTitle: "Youths Of Today" },
+      ]);
+      expect(result.candidates).toHaveLength(1);
+    });
+
+    it("should search by the title alone when no artist was read", async () => {
+      labelReader.read.mockResolvedValue({ ...zuluReading, artists: [], label: null, catalogNumber: null });
+
+      await service.lookupByPhoto([{ data: Buffer.from("x"), mediaType: "image/png" }]);
+
+      expect(discogs.search.mock.calls.map((call) => call[0])).toEqual([{ releaseTitle: "Jah Prophecy" }]);
     });
 
     it("should return no candidates when nothing could be read", async () => {
@@ -235,10 +269,18 @@ describe("RecordLookupService", () => {
   it("should search by a typed catalog number", async () => {
     discogs.search.mockResolvedValueOnce([zuluSearchResult]);
 
-    const candidates = await service.lookupByCatalogNumber("ZV-7-006");
+    const candidates = await service.searchReleases({ catno: "ZV-7-006" });
 
     expect(discogs.search).toHaveBeenCalledWith({ catno: "ZV-7-006" }, 10);
     expect(candidates).toHaveLength(1);
+  });
+
+  it("should search by an artist and title corrected in the wizard", async () => {
+    discogs.search.mockResolvedValueOnce([zuluSearchResult]);
+
+    await service.searchReleases({ artists: ["Patrick Andy"], releaseTitle: "Youths Of Today" });
+
+    expect(discogs.search).toHaveBeenCalledWith({ artist: "Patrick Andy", releaseTitle: "Youths Of Today" }, 10);
   });
 
   it("should return null for a release Discogs does not know", async () => {
@@ -262,7 +304,7 @@ describe("RecordLookupService", () => {
 
   it.each([
     ["Claude", () => lookupService(providerOf({})).lookupByPhoto([])],
-    ["Discogs", () => lookupService(providerOf({})).lookupByCatalogNumber("X")],
+    ["Discogs", () => lookupService(providerOf({})).searchReleases({ catno: "X" })],
     ["Discogs", () => lookupService(providerOf({})).getReleaseDraft(1)],
     ["Claude", () => lookupService(providerOf({})).translateConditionNote("x")],
   ])("should report that %s is not configured", async (service, call) => {
@@ -285,6 +327,10 @@ describe("mapSearchResult", () => {
       country: "France",
       formats: ["Vinyl", '7"', "45 RPM"],
     });
+  });
+
+  it("should drop the \"none\" catalog number Discogs uses for releases without one", () => {
+    expect(mapSearchResult({ ...zuluSearchResult, catno: "none" }).catalogNumber).toBeNull();
   });
 
   it("should skip the Discogs placeholder image", () => {

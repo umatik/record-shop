@@ -14,10 +14,21 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const MAX_LABEL_IMAGE_BYTES = 5 * 1024 * 1024;
 export const MAX_LABEL_IMAGES = 2;
 
-const catalogNumberQuerySchema = z.object({
-  catalogNumber: z.string().trim().min(1).max(100),
-  label: z.string().trim().min(1).max(255).optional(),
-});
+/**
+ * Wyszukiwanie wydań bez zdjęcia, np. po poprawieniu odczytu w kreatorze. Wystarczy numer katalogowy,
+ * artysta albo tytuł; puste pola są pomijane. Kilku artystów rozdziela się przecinkiem.
+ */
+const releaseSearchQuerySchema = z
+  .object({
+    catalogNumber: z.string().trim().max(100).optional(),
+    label: z.string().trim().max(255).optional(),
+    artist: z.string().trim().max(500).optional(),
+    title: z.string().trim().max(255).optional(),
+  })
+  .refine((query) => Boolean(query.catalogNumber || query.artist || query.title), {
+    message: "Give a catalog number, an artist or a title",
+    path: ["catalogNumber"],
+  });
 
 const existingProductsQuerySchema = z
   .object({
@@ -96,8 +107,8 @@ export class RecordLookupController {
     }
   };
 
-  lookupByCatalogNumber = async (req: Request, res: Response) => {
-    const parsed = catalogNumberQuerySchema.safeParse(req.query);
+  searchReleases = async (req: Request, res: Response) => {
+    const parsed = releaseSearchQuerySchema.safeParse(req.query);
 
     if (!parsed.success) {
       res.status(400).json({
@@ -107,10 +118,13 @@ export class RecordLookupController {
       return;
     }
 
-    const candidates = await this.recordLookupService.lookupByCatalogNumber(
-      parsed.data.catalogNumber,
-      parsed.data.label,
-    );
+    const { catalogNumber, label, artist, title } = parsed.data;
+    const candidates = await this.recordLookupService.searchReleases({
+      catno: catalogNumber || undefined,
+      label: label || undefined,
+      artists: artist ? artist.split(",") : [],
+      releaseTitle: title || undefined,
+    });
 
     res.status(200).json({ message: "Releases found", candidates });
   };

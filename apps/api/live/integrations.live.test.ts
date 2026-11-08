@@ -122,7 +122,7 @@ describeWithClaude(`Claude (${CLAUDE_TEST_MODEL})`, () => {
 
 describeWithDiscogs("Discogs", () => {
   it("should find the release by catalog number and label", async () => {
-    const candidates = await lookupService().lookupByCatalogNumber("ZV-7-006", "Zulu Vibes");
+    const candidates = await lookupService().searchReleases({ catno: "ZV-7-006", label: "Zulu Vibes" });
 
     expect(candidates.map((candidate) => candidate.releaseId)).toContain(RELEASE_ID);
   });

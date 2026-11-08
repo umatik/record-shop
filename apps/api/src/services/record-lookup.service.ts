@@ -63,6 +63,29 @@ export type ReleaseDraft = {
 };
 
 const CANDIDATE_LIMIT = 10;
+/** Ilu odczytanych artystów sprawdzamy osobno; każda próba to jedno zapytanie do Discogs. */
+const MAX_ARTIST_ATTEMPTS = 3;
+
+/** To, co wiemy o płycie przed wyszukaniem: z labelu albo wpisane w kreatorze. */
+export type SearchHints = {
+  catno?: string | undefined;
+  label?: string | undefined;
+  artists?: string[] | undefined;
+  releaseTitle?: string | undefined;
+};
+
+/** Niepuste nazwy bez powtórzeń (wielkość liter nie ma znaczenia), w kolejności z labelu. */
+const uniqueNames = (names: string[]): string[] => {
+  const seen = new Set<string>();
+  return names
+    .map((name) => name.trim())
+    .filter((name) => {
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
 
 const EXTENSION_BY_MEDIA_TYPE: Record<LabelImage["mediaType"], string> = {
   "image/jpeg": "jpg",
@@ -82,6 +105,12 @@ const cleanName = (name: string): string => name.replace(/\s+\(\d+\)$/, "").trim
 const emptyToUndefined = (value: string | undefined): string | undefined => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+};
+
+/** Discogs wpisuje „none”, gdy wydanie nie ma numeru katalogowego; traktujemy to jak brak numeru. */
+const realCatalogNumber = (value: string | undefined): string | undefined => {
+  const catno = emptyToUndefined(value);
+  return catno?.toLowerCase() === "none" ? undefined : catno;
 };
 
 export class RecordLookupService {
@@ -117,7 +146,7 @@ export class RecordLookupService {
       const candidates = await this.searchWithFallback(discogs, {
         catno: reading.catalogNumber ?? undefined,
         label: reading.label ?? undefined,
-        artist: reading.artists[0],
+        artists: reading.artists,
         releaseTitle: reading.title ?? undefined,
       });
 
@@ -128,14 +157,14 @@ export class RecordLookupService {
     }
   }
 
-  /** Wyszukiwanie po wpisanym numerze katalogowym (opcjonalnie z wytwórnią), bez zdjęcia. */
-  async lookupByCatalogNumber(
-    catalogNumber: string,
-    label?: string,
-  ): Promise<ReleaseCandidate[]> {
+  /**
+   * Wyszukiwanie bez zdjęcia: po wpisanym albo poprawionym w kreatorze numerze katalogowym, wytwórni,
+   * artystach i tytule. Ta sama kolejność prób co przy zdjęciu.
+   */
+  async searchReleases(hints: SearchHints): Promise<ReleaseCandidate[]> {
     const discogs = this.require(await this.integrations.getDiscogs(), "Discogs");
 
-    return this.searchWithFallback(discogs, { catno: catalogNumber, label });
+    return this.searchWithFallback(discogs, hints);
   }
 
   async getReleaseDraft(releaseId: number): Promise<ReleaseDraft | null> {
@@ -156,12 +185,17 @@ export class RecordLookupService {
   }
 
   /**
-   * Najpewniejszy jest numer katalogowy z wytwórnią; potem sam numer; na końcu artysta z tytułem.
-   * Kolejny krok uruchamia się tylko, gdy poprzedni nic nie znalazł.
+   * Najpewniejszy jest numer katalogowy z wytwórnią; potem sam numer; potem tytuł z każdym odczytanym
+   * artystą osobno; na końcu tytuł z wytwórnią i sam tytuł. Kolejny krok uruchamia się tylko, gdy
+   * poprzedni nic nie znalazł.
+   *
+   * Artystów próbujemy po kolei, bo na labelu bywa kilku (split) albo Claude bierze za artystę producenta
+   * czy nazwę wytwórni, np. „Vivian Jackson” na singlu Patricka Andy. Tytuł bez artysty ratuje single,
+   * które na Discogs nie mają numeru katalogowego.
    */
   private async searchWithFallback(
     discogs: DiscogsClient,
-    params: DiscogsSearchParams,
+    params: SearchHints,
   ): Promise<ReleaseCandidate[]> {
     const attempts: DiscogsSearchParams[] = [];
 
@@ -173,8 +207,18 @@ export class RecordLookupService {
       attempts.push({ catno: params.catno });
     }
 
-    if (params.artist || params.releaseTitle) {
-      attempts.push({ artist: params.artist, releaseTitle: params.releaseTitle });
+    const artists = uniqueNames(params.artists ?? []).slice(0, MAX_ARTIST_ATTEMPTS);
+
+    for (const artist of artists) {
+      attempts.push({ artist, releaseTitle: params.releaseTitle });
+    }
+
+    if (params.releaseTitle) {
+      if (params.label) {
+        attempts.push({ releaseTitle: params.releaseTitle, label: params.label });
+      }
+
+      attempts.push({ releaseTitle: params.releaseTitle });
     }
 
     for (const attempt of attempts) {
@@ -258,7 +302,7 @@ export const mapSearchResult = (result: DiscogsSearchResult): ReleaseCandidate =
     thumbnail:
       [result.thumb, result.cover_image].find((url) => !isPlaceholderImage(url)) ?? null,
     label: result.label?.[0] ? cleanName(result.label[0]) : null,
-    catalogNumber: emptyToUndefined(result.catno) ?? null,
+    catalogNumber: realCatalogNumber(result.catno) ?? null,
     year: Number.isInteger(year) && year > 0 ? year : null,
     country: result.country ?? null,
     formats: result.format ?? [],
@@ -282,7 +326,7 @@ export const mapReleaseToDraft = (release: DiscogsRelease): ReleaseDraft => {
       : undefined;
 
   const firstLabel = release.labels?.[0];
-  const catalogNumber = emptyToUndefined(firstLabel?.catno);
+  const catalogNumber = realCatalogNumber(firstLabel?.catno);
 
   const credits = (release.extraartists ?? [])
     .filter((artist) => artist.role)
@@ -333,7 +377,7 @@ export const mapReleaseToDraft = (release: DiscogsRelease): ReleaseDraft => {
         ...(speed && { speed }),
         ...(release.year && release.year > 0 && { year: release.year }),
         ...(firstLabel && { label: cleanName(firstLabel.name) }),
-        ...(catalogNumber && catalogNumber.toLowerCase() !== "none" && { catalogNumber }),
+        ...(catalogNumber && { catalogNumber }),
         ...(emptyToUndefined(release.country) && { country: release.country!.trim() }),
         ...(descriptions.includes("Reissue") && { pressing: "reissue" as const }),
         discogsReleaseId: release.id,

@@ -29,7 +29,8 @@ export const createRecordLookupRouter = (
    *     summary: Read a label photo with Claude and find matching releases on Discogs
    *     description: >-
    *       Returns what was read from the label (`reading`, used for "none of these, enter manually"), up to 10
-   *       Discogs `candidates` (search order: catalog number + label, catalog number, artist + title) and
+   *       Discogs `candidates` (search order, stopping at the first hit: catalog number + label, catalog number,
+   *       title with each read artist (up to 3), title + label, title alone) and
    *       `photoUploadIds`: the photos are kept for 24 hours; pass them as `photoUploadIds` when creating the
    *       variant and the first one becomes its primary photo. Discogs images are not used.
    *     security:
@@ -73,26 +74,36 @@ export const createRecordLookupRouter = (
    * /products/lookup:
    *   get:
    *     tags: [Products – wizard]
-   *     summary: Find releases on Discogs by catalog number (no photo)
+   *     summary: Find releases on Discogs without a photo (catalog number, label, artist, title)
+   *     description: >-
+   *       For a typed or corrected label reading. At least one of catalogNumber, artist or title is required;
+   *       empty values are ignored. Same search order as POST /products/lookup/photo.
    *     security:
    *       - bearerAuth: []
    *     parameters:
    *       - in: query
    *         name: catalogNumber
-   *         required: true
+   *         required: false
    *         schema: { type: string }
    *       - in: query
    *         name: label
+   *         schema: { type: string }
+   *       - in: query
+   *         name: artist
+   *         description: One or more artists separated by commas
+   *         schema: { type: string }
+   *       - in: query
+   *         name: title
    *         schema: { type: string }
    *     responses:
    *       200:
    *         description: Candidates (may be empty)
    *       400:
-   *         description: Missing catalog number
+   *         description: None of catalogNumber, artist or title given
    *       503:
    *         description: Discogs is not configured
    */
-  router.get("/lookup", ...canCreate, controller.lookupByCatalogNumber);
+  router.get("/lookup", ...canCreate, controller.searchReleases);
 
   /**
    * @openapi
