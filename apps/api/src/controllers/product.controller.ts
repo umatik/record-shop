@@ -287,7 +287,7 @@ export class ProductController {
   // Pomocnicze
   // ------------------------------------------------------------------
 
-  /** `managed`: lista w panelu, z łączną liczbą sztuk na stanie (sklep jej nie dostaje). */
+  /** `managed`: lista w panelu zawiera dodatkowo liczbę wariantów. */
   private async listProducts(req: Request, res: Response, status: ProductStatus, managed = false) {
     const page = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 20);
@@ -323,7 +323,8 @@ export class ProductController {
       message: "Products found",
       products,
       pagination: createPagination(page, limit, total),
-      ...(managed && stock),
+      copies: stock.copies,
+      ...(managed && { presses: stock.presses }),
     });
   }
 
