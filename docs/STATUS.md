@@ -50,10 +50,7 @@ Next.js 16, Mantine 9, TanStack Query; mobile first; konwencje według wzorca `c
 
 ## Stan na koniec sesji
 
-- `main` na GitHubie: `04448ee feat(admin): add product view`.
-- **Niezacommitowane (dodane do gita):** wzór moro na logowaniu i w nagłówku, „nasz biały” w motywie, linki
-  zewnętrzne zawsze w nowej karcie (`components/ui/ExternalLink.tsx`), strażnik sesji przepuszcza pliki statyczne,
-  bez gwiazdek przy polach logowania. Do zacommitowania na początku następnej sesji.
+- `main` na GitHubie: `5f64621 feat(admin): add camo look and open external links in a new tab`.
 - Baza deweloperska ma dane demo: 20 okładek z Facebooka RasBass (podpięte do produktów 32–50 i 6), zamówienia 1–4
   Alice (opłacone, czekające, anulowane), szkice z testów kreatora. Po resecie bazy wróci sam seed.
 
