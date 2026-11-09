@@ -17,5 +17,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|uploads|logo.png|favicon.ico).*)"],
+  // Bez tras serwera panelu, plików Nexta, zdjęć z API i plików statycznych (wszystko z rozszerzeniem, np. logo, wzory).
+  matcher: ["/((?!api|_next|uploads|.*\\.[a-z0-9]+$).*)"],
 };

@@ -40,8 +40,8 @@ const LoginForm = () => {
             {error}
           </Alert>
         )}
-        <TextInput name="email" type="email" label="E-mail" autoComplete="username" required />
-        <PasswordInput name="password" label="Hasło" autoComplete="current-password" required />
+        <TextInput name="email" type="email" label="E-mail" autoComplete="username" required withAsterisk={false} />
+        <PasswordInput name="password" label="Hasło" autoComplete="current-password" required withAsterisk={false} />
         <Button type="submit" loading={loading} fullWidth>
           Zaloguj
         </Button>

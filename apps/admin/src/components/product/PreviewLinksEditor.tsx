@@ -1,9 +1,10 @@
 "use client";
 
-import { ActionIcon, Anchor, Button, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { ActionIcon, Button, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import ErrorState from "@/components/ui/ErrorState";
+import ExternalLink from "@/components/ui/ExternalLink";
 import { useUpdateProduct } from "@/hooks/useProduct";
 import type { Product } from "@/types/product";
 
@@ -41,9 +42,9 @@ const PreviewLinksEditor = ({ product }: PreviewLinksEditorProps) => {
         <ul className="plain-list">
           {links.map((url) => (
             <Group component="li" key={url} wrap="nowrap" justify="space-between" gap="sm" py={6}>
-              <Anchor href={url} target="_blank" fz="md" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+              <ExternalLink href={url} fz="md" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 {url.replace(/^https?:\/\/(www\.)?/, "")}
-              </Anchor>
+              </ExternalLink>
               <ActionIcon
                 variant="subtle"
                 color="red"

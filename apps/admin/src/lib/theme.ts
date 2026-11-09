@@ -8,6 +8,8 @@ import { createTheme } from "@mantine/core";
  * nazwanych rozmiarów (`fz="xxl"`, `order={2}`), nie liczb, żeby zmiana skali była w jednym miejscu.
  */
 export const theme = createTheme({
+  // „Nasz biały”: bardzo jasna oliwka w odcieniu moro. Mantine bierze z niego tło strony, kart, okien i pól.
+  white: "#f8f8f6",
   primaryColor: "blue",
   defaultRadius: "md",
   fontFamily: "var(--font-figtree), system-ui, sans-serif",

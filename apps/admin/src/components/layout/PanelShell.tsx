@@ -29,12 +29,12 @@ const PanelShell = ({ children }: PanelShellProps) => {
       footer={{ height: 72, collapsed: isDesktop === true }}
       padding="md"
     >
-      <AppShell.Header>
+      <AppShell.Header className="camo" withBorder={false}>
         <Group h="100%" px="md" justify="space-between">
           <Link href="/" aria-label="RasBass, pulpit" style={{ textDecoration: "none", color: "inherit" }}>
             <Group gap="xs">
-              <Logo size={36} />
-              <Text fw={800} fz="lg" lts={1} aria-hidden="true">
+              <Logo size={36} onDark />
+              <Text fw={800} fz="lg" lts={1} c="white" aria-hidden="true">
                 RASBASS
               </Text>
             </Group>

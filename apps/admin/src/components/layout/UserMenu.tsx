@@ -12,7 +12,7 @@ const UserMenu = () => {
   return (
     <Menu position="bottom-end" width={240}>
       <Menu.Target>
-        <ActionIcon variant="subtle" color="gray" size="xl" aria-label="Konto">
+        <ActionIcon variant="subtle" color="white" size="xl" aria-label="Konto">
           <IconUserCircle size={30} stroke={1.5} aria-hidden="true" />
         </ActionIcon>
       </Menu.Target>

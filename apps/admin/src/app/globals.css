@@ -22,3 +22,29 @@
   margin: 0;
   padding: 0;
 }
+
+/* Geometryczne moro (public/patterns/camo.svg, z scripts/generate-camo.mjs): tło logowania i nagłówka. */
+.camo {
+  background-color: #3d4031;
+  background-image: url("/patterns/camo.svg");
+  /* Na telefonie kafelek w połowie wielkości, żeby kliny miały podobną skalę względem ekranu jak na desktopie. */
+  background-size: 640px 640px;
+}
+
+@media (min-width: 48em) {
+  .camo {
+    background-size: 1280px 1280px;
+  }
+}
+
+/* Karta logowania: bardzo jasna oliwka, w odcieniu kolorów moro. */
+.camo-card {
+  --camo-card-bg: #ffffff;
+  background-color: var(--camo-card-bg);
+}
+
+/* Logo na ciemnym tle: odwrócone kolory, a `screen` ukrywa czarne (po odwróceniu) tło PNG. */
+.logo-on-dark {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}

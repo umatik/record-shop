@@ -1,4 +1,4 @@
-import { Anchor, Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { IconArrowRight } from "@tabler/icons-react";
 import type { ProductMatch } from "@/types/lookup";
 import ChoiceField from "./ChoiceField";
@@ -6,6 +6,7 @@ import type { DetailsField, FromLabel, RecordDetails } from "./details";
 import ExistingProductsAlert from "./ExistingProductsAlert";
 import FromLabelHint from "./FromLabelHint";
 import StepTitle from "./StepTitle";
+import ExternalLink from "@/components/ui/ExternalLink";
 
 type DetailsStepProps = {
   details: RecordDetails;
@@ -80,9 +81,9 @@ const DetailsStep = ({ details, onChange, fromLabel, existingProducts, onNext }:
       <Text fz="sm" c="dimmed">
         Z Discogs: {details.tracklistCount} utworów, {details.previewLinksCount} linków do odsłuchu. Data provided by
         Discogs.{" "}
-        <Anchor href={`https://www.discogs.com/release/${details.discogsReleaseId}`} target="_blank" inherit>
+        <ExternalLink href={`https://www.discogs.com/release/${details.discogsReleaseId}`} inherit>
           Zobacz wydanie
-        </Anchor>
+        </ExternalLink>
       </Text>
     )}
 

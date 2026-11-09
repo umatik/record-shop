@@ -1,6 +1,7 @@
 "use client";
 
-import { Anchor, Divider, Group, Image, Paper, Stack, Text, Title } from "@mantine/core";
+import { Divider, Group, Image, Paper, Stack, Text, Title } from "@mantine/core";
+import ExternalLink from "@/components/ui/ExternalLink";
 import { useFilePreview } from "@/hooks/useFilePreview";
 import { formatEur } from "@/lib/format";
 import { describeSleeve } from "@/lib/vinyl";
@@ -66,9 +67,9 @@ const RecordSummary = ({ details, variant, cover, photoCount }: RecordSummaryPro
         {details.discogsReleaseId && (
           <Text fz="sm" c="dimmed">
             Data provided by Discogs.{" "}
-            <Anchor href={`https://www.discogs.com/release/${details.discogsReleaseId}`} target="_blank" inherit>
+            <ExternalLink href={`https://www.discogs.com/release/${details.discogsReleaseId}`} inherit>
               Zobacz wydanie
-            </Anchor>
+            </ExternalLink>
           </Text>
         )}
       </Stack>
