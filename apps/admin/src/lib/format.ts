@@ -1,4 +1,4 @@
-import type { Product } from "./types";
+import type { Product } from "@/types/product";
 
 const eurWhole = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const eurCents = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "EUR" });

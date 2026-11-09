@@ -1,16 +1,25 @@
 "use client";
 
-import { Alert, Button, Loader, Progress, Stack, Text } from "@mantine/core";
-import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
+import { Alert, Loader, Stack, Text } from "@mantine/core";
 import { useState } from "react";
-import { api } from "@/lib/api";
-import type { LabelReading, ProductMatch, ReleaseCandidate, ReleaseDraft } from "@/lib/types";
-import { ConditionStep, emptyConditionForm, toVariant, type ConditionForm } from "./ConditionStep";
-import { DetailsStep, detailsFromReading, mergeDraft, type FromLabel, type RecordDetails } from "./DetailsStep";
-import { PhotoStep, type PhotoResult } from "./PhotoStep";
-import { PhotosStep } from "./PhotosStep";
-import { PickStep, type SearchQuery } from "./PickStep";
-import { SummaryStep } from "./SummaryStep";
+import ErrorState from "@/components/ui/ErrorState";
+import { useReleaseDraft, useReleaseSearch } from "@/hooks/useLookup";
+import type {
+  LabelLookupResult,
+  LabelReading,
+  ProductMatch,
+  ReleaseCandidate,
+  ReleaseSearchQuery,
+} from "@/types/lookup";
+import { emptyConditionForm, toVariant, type ConditionForm } from "./condition";
+import ConditionStep from "./ConditionStep";
+import { detailsFromReading, mergeDraft, type FromLabel, type RecordDetails } from "./details";
+import DetailsStep from "./DetailsStep";
+import PhotosStep from "./PhotosStep";
+import PhotoStep from "./PhotoStep";
+import PickStep from "./PickStep";
+import SummaryStep from "./SummaryStep";
+import WizardHeader from "./WizardHeader";
 
 /** Kolejność ustalona w notatkach panelu: zdjęcie → wydanie → dane → stan i cena → zdjęcia → podsumowanie. */
 type Step = "photo" | "pick" | "details" | "condition" | "photos" | "summary";
@@ -21,7 +30,7 @@ const STEP_COUNT = 6;
  * Kreator dodawania płyty. Dane wszystkich kroków trzyma tutaj, a kroki tylko je pokazują i zmieniają,
  * więc „Wstecz” niczego nie kasuje, a „Dalej” w nagłówku wraca do kroków, które już były wypełnione.
  */
-export function AddRecordWizard() {
+const AddRecordWizard = () => {
   // Odwiedzone kroki i pozycja w nich, jak historia w przeglądarce.
   const [path, setPath] = useState<Step[]>(["photo"]);
   const [index, setIndex] = useState(0);
@@ -35,7 +44,9 @@ export function AddRecordWizard() {
   // Krok 2.
   const [reading, setReading] = useState<LabelReading | null>(null);
   const [candidates, setCandidates] = useState<ReleaseCandidate[]>([]);
-  const [loadingRelease, setLoadingRelease] = useState(false);
+  const releaseSearch = useReleaseSearch();
+  const releaseDraft = useReleaseDraft();
+  const loadingRelease = releaseDraft.isPending;
   // Krok 3.
   const [details, setDetails] = useState<RecordDetails | null>(null);
   const [fromLabel, setFromLabel] = useState<FromLabel>({});
@@ -46,7 +57,6 @@ export function AddRecordWizard() {
   const [extraPhotos, setExtraPhotos] = useState<File[]>([]);
 
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const variant = toVariant(condition);
   const photosChanged =
@@ -64,7 +74,8 @@ export function AddRecordWizard() {
 
   const show = (i: number) => {
     setIndex(i);
-    setError(null);
+    releaseSearch.reset();
+    releaseDraft.reset();
     window.scrollTo(0, 0);
   };
 
@@ -93,16 +104,15 @@ export function AddRecordWizard() {
     setCondition(emptyConditionForm);
     setExtraPhotos([]);
     setSaved(false);
-    setError(null);
     window.scrollTo(0, 0);
   }
 
-  function onPhoto(result: PhotoResult) {
-    setLookedUpPhotos(result.files);
-    setReading(result.kind === "found" ? result.lookup.reading : result.reading);
+  function onRead(result: LabelLookupResult, photos: File[]) {
+    setLookedUpPhotos(photos);
+    setReading(result.reading);
     if (result.kind === "found") {
-      setPhotoUploadIds(result.lookup.photoUploadIds);
-      setCandidates(result.lookup.candidates);
+      setPhotoUploadIds(result.photoUploadIds);
+      setCandidates(result.candidates);
       // Nowy odczyt to (zwykle) inna płyta: dane z kroku 3 trzeba wybrać od nowa. Stan i zdjęcia zostają.
       setDetails(null);
       setNotice(null);
@@ -121,47 +131,39 @@ export function AddRecordWizard() {
   }
 
   /** Wyszukanie po poprawionym odczycie: tylko Discogs. Poprawki zostają w odczycie, więc trafią też do kroku 3. */
-  async function onSearch(query: SearchQuery) {
-    setError(null);
-    const params = new URLSearchParams(
-      Object.entries(query).filter(([, value]) => value.trim()) as [string, string][],
-    );
+  async function onSearch(query: ReleaseSearchQuery) {
     try {
-      const result = await api<{ candidates: ReleaseCandidate[] }>(`/products/lookup?${params}`);
-      setCandidates(result.candidates);
-      setReading((current) =>
-        current && {
-          ...current,
-          artists: query.artist.split(",").map((a) => a.trim()).filter(Boolean),
-          title: query.title.trim() || null,
-          label: query.label.trim() || null,
-          catalogNumber: query.catalogNumber.trim() || null,
-        },
+      setCandidates(await releaseSearch.mutateAsync(query));
+      setReading(
+        (current: LabelReading | null) =>
+          current && {
+            ...current,
+            artists: query.artist
+              .split(",")
+              .map((a) => a.trim())
+              .filter(Boolean),
+            title: query.title.trim() || null,
+            label: query.label.trim() || null,
+            catalogNumber: query.catalogNumber.trim() || null,
+          },
       );
       // Inne wyniki mogą oznaczać inną płytę: dane z kroku 3 trzeba wybrać od nowa.
       setDetails(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się wyszukać na Discogs.");
+    } catch {
+      // Błąd pokazuje `releaseSearch.error` nad krokiem.
     }
   }
 
-  async function onPick(candidate: ReleaseCandidate) {
-    setLoadingRelease(true);
-    setError(null);
-    try {
-      const result = await api<{ draft: ReleaseDraft; existingProducts: ProductMatch[] }>(
-        `/products/lookup/releases/${candidate.releaseId}`,
-      );
-      const merged = mergeDraft(result.draft, reading);
-      setDetails(merged.details);
-      setFromLabel(merged.fromLabel);
-      setExistingProducts(result.existingProducts);
-      go("details");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się pobrać wydania z Discogs.");
-    } finally {
-      setLoadingRelease(false);
-    }
+  function onPick(candidate: ReleaseCandidate) {
+    releaseDraft.mutate(candidate.releaseId, {
+      onSuccess: (result) => {
+        const merged = mergeDraft(result.draft, reading);
+        setDetails(merged.details);
+        setFromLabel(merged.fromLabel);
+        setExistingProducts(result.existingProducts);
+        go("details");
+      },
+    });
   }
 
   function onManual() {
@@ -171,48 +173,29 @@ export function AddRecordWizard() {
     go("details");
   }
 
+  const error = releaseSearch.error ?? releaseDraft.error;
+
   return (
     <Stack gap="lg" maw={640} mx="auto">
-      <Stack gap={6}>
-        {/* Trzy kolumny o równych bokach, żeby licznik kroków był zawsze na środku. */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", minHeight: 44 }}>
-          <div>
-          {canGoBack && (
-            <Button variant="subtle" size="lg" px={0} leftSection={<IconArrowLeft size={24} />} onClick={() => show(index - 1)}>
-              Wstecz
-            </Button>
-          )}
-          </div>
-          <Text fz="lg" c="dimmed" ta="center">
-            Krok {STEP_NUMBER[step]} z {STEP_COUNT}
-          </Text>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          {canGoForward && (
-            <Button variant="subtle" size="lg" px={0} rightSection={<IconArrowRight size={24} />} onClick={() => show(index + 1)}>
-              Dalej
-            </Button>
-          )}
-          </div>
-        </div>
-        <Progress value={(STEP_NUMBER[step] / STEP_COUNT) * 100} size="md" radius="xl" />
-      </Stack>
+      <WizardHeader
+        step={STEP_NUMBER[step]}
+        stepCount={STEP_COUNT}
+        onBack={canGoBack ? () => show(index - 1) : undefined}
+        onForward={canGoForward ? () => show(index + 1) : undefined}
+      />
 
-      {error && (
-        <Alert color="red" variant="light" fz="md">
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorState message={error.message} />}
 
-      {step === "photo" && <PhotoStep value={labelPhotos} onChange={setLabelPhotos} onDone={onPhoto} />}
+      {step === "photo" && <PhotoStep photos={labelPhotos} onPhotosChange={setLabelPhotos} onRead={onRead} />}
 
       {step === "pick" && reading && !loadingRelease && (
         <PickStep reading={reading} candidates={candidates} onPick={onPick} onManual={onManual} onSearch={onSearch} />
       )}
 
       {loadingRelease && (
-        <Stack align="center" py="xl" gap="md">
-          <Loader size="lg" />
-          <Text fz="lg">Pobieram dane wydania z Discogs…</Text>
+        <Stack role="status" align="center" py="xl" gap="md">
+          <Loader size="lg" aria-hidden="true" />
+          <Text fz="lg">Pobieranie danych wydania z Discogs…</Text>
         </Stack>
       )}
 
@@ -224,7 +207,7 @@ export function AddRecordWizard() {
             </Alert>
           )}
           <DetailsStep
-            value={details}
+            details={details}
             onChange={(patch) => setDetails((current) => (current ? { ...current, ...patch } : current))}
             fromLabel={fromLabel}
             existingProducts={existingProducts}
@@ -235,14 +218,19 @@ export function AddRecordWizard() {
 
       {step === "condition" && (
         <ConditionStep
-          value={condition}
+          form={condition}
           onChange={(patch) => setCondition((current) => ({ ...current, ...patch }))}
           onNext={() => go("photos")}
         />
       )}
 
       {step === "photos" && (
-        <PhotosStep labelPhotos={labelPhotos} value={extraPhotos} onChange={setExtraPhotos} onNext={() => go("summary")} />
+        <PhotosStep
+          labelPhotos={labelPhotos}
+          extraPhotos={extraPhotos}
+          onExtraPhotosChange={setExtraPhotos}
+          onNext={() => go("summary")}
+        />
       )}
 
       {step === "summary" && details && variant && (
@@ -258,4 +246,6 @@ export function AddRecordWizard() {
       )}
     </Stack>
   );
-}
+};
+
+export default AddRecordWizard;

@@ -1,17 +1,24 @@
-/*
- * Logo to czarny rysunek na białym tle (PNG bez przezroczystości).
- * multiply ukrywa białe tło w jasnym motywie; w ciemnym odwracamy kolory, a screen ukrywa czarne tło.
- */
+/* Logo to czarny rysunek na białym tle (PNG bez przezroczystości); multiply ukrywa białe tło. */
 .logo {
   mix-blend-mode: multiply;
 }
 
-[data-mantine-color-scheme="dark"] .logo {
-  filter: invert(1);
-  mix-blend-mode: screen;
+/* Tekst tylko dla czytników ekranu (np. „Ładowanie…” przy szkielecie). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* Szary tekst pomocniczy ciemniejszy niż domyślny, żeby był czytelny także w słabym świetle. */
-:root[data-mantine-color-scheme="light"] {
-  --mantine-color-dimmed: var(--mantine-color-gray-7);
+/* Listy semantyczne (`ul`) bez kropek i wcięć: wygląd nadają komponenty. */
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }

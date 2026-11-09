@@ -1,4 +1,4 @@
-import { ComingSoon } from "@/components/ComingSoon";
+import ComingSoon from "@/components/ui/ComingSoon";
 
 export default function Page() {
   return <ComingSoon title="Ustawienia" />;

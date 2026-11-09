@@ -1,20 +1,23 @@
 # Uwagi do panelu admina
 
-Notatki z budowy API dla osobnego repo panelu. Nie ma tu gotowych rozwiązań, tylko to, co warto wiedzieć przed
-startem, i moje sugestie. Szczegóły endpointów: Swagger (`/api-docs`) i specyfikacja `/api-docs.json`.
+Notatki z budowy API spisane przed startem panelu: co panel musi wiedzieć o API. Szczegóły endpointów: Swagger
+(`/api-docs`) i specyfikacja `/api-docs.json`. Jak panel jest zbudowany i jak go uruchomić: `README.md`.
+
+> Stan na 2026-11-09: część sugestii z tego pliku zastąpiły decyzje podjęte przy budowie. Panel jest na Next.js
+> (nie Vite), token trzyma serwer panelu w ciasteczku `httpOnly` (nie `sessionStorage`), cały panel jest mobile
+> first, a przeglądarka rozmawia tylko z panelem, więc `CORS_ORIGIN` w API nie jest potrzebne.
 
 ## Sugestie ogólne
 
-- **Stos technologiczny.** Wystarczy prosta aplikacja SPA: React + TypeScript + Vite. Do danych z API TanStack Query
-  (cache, odświeżanie po zmianach), do formularzy react-hook-form. Bez SSR i bez własnego backendu, bo panel tylko
-  rozmawia z API.
+- **Stos technologiczny.** Next.js (App Router) + Mantine + TanStack Query, spójnie ze sklepem (decyzja z budowy;
+  pierwotna sugestia: SPA na Vite).
 - **Typy z API, nie pisane ręcznie.** Generować je z `/api-docs.json` (np. `openapi-typescript`) i odświeżać przy
   zmianach w API.
 - **Formularze atrybutów z typów produktów.** `GET /products/types` zwraca JSON Schema pól produktu i wariantu dla
   każdego typu (winyl, koszulka, inne). Formularz wariantu może się z nich budować, wtedy nowy typ w API nie wymaga
   zmian w panelu. Na start wystarczy jednak ręczny formularz dla winyla i prosty dla pozostałych.
 - **Mobile first dla kreatora.** Zdjęcie labelu robi się telefonem, więc kreator musi wygodnie działać na telefonie
-  (aparat przez `<input type="file" accept="image/*" capture>`). Reszta panelu może być desktopowa.
+  (aparat przez `<input type="file" accept="image/*" capture>`). Decyzja z budowy: mobile first obowiązuje cały panel.
 - **Język panelu.** Interfejs panelu po polsku wystarczy. Trzy języki (EN/ES/PL) dotyczą treści dla klientów: na
   razie tylko notatki o stanie płyty.
 
@@ -24,9 +27,8 @@ startem, i moje sugestie. Szczegóły endpointów: Swagger (`/api-docs`) i specy
   powinien wtedy wylogować i wrócić do logowania, najlepiej zachowując niezapisany formularz.
 - Po zalogowaniu `GET /users/me`: wpuszczamy tylko użytkownika z uprawnieniami `products:*`. Przyciski pokazujemy
   według uprawnień (`products:publish` do publikacji, `settings:manage` do ustawień).
-- Token trzymać w pamięci albo w `sessionStorage`, nie w `localStorage`. To prosty panel dla jednej osoby, ale nie
-  ma powodu, żeby token żył dłużej niż karta.
-- Adres panelu musi być dopisany do `CORS_ORIGIN` w `.env` API.
+- Token trzyma serwer panelu w ciasteczku `httpOnly` (sesyjnym), a żądania do API idą przez `/api/proxy`. Przeglądarka
+  nie zna ani tokenu, ani adresu API, więc `CORS_ORIGIN` w API nie musi zawierać adresu panelu.
 
 ## Kreator dodawania płyty
 
