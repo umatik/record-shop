@@ -1,6 +1,6 @@
 # Stan projektu i co dalej
 
-Podsumowanie sesji z 2026-11-08 i 2026-11-09 (dwie sesje tego dnia). Punkt startowy dla kolejnych sesji: najpierw ten plik, potem
+Podsumowanie sesji z 2026-11-08 i 2026-11-09 (trzy sesje tego dnia). Punkt startowy dla kolejnych sesji: najpierw ten plik, potem
 `docs/sprzedaz.md` (plan etapu sprzedaży) i `docs/audit/ADMIN_FRONTEND_AUDIT.md` (audyt panelu i lista poprawek).
 
 ## Co zrobiliśmy
@@ -44,7 +44,7 @@ Next.js 16, Mantine 9, TanStack Query; mobile first; konwencje według wzorca `c
 ### Sesja 2026-11-09 (po południu): szkice kreatora, duplikaty, widok produktu
 
 Zaczęło się od przeglądu zmian zrobionych z GPT (trwałe szkice kreatora, dodawanie wariantu do istniejącej płyty)
-i ich poprawek. Pierwsza część jest w commicie `48acc3c`, reszta czeka na commit (zob. „Stan na koniec sesji”).
+i ich poprawek. Pierwsza część jest w commicie `48acc3c`, reszta w `00e9a07`.
 
 **API**
 
@@ -81,6 +81,42 @@ i ich poprawek. Pierwsza część jest w commicie `48acc3c`, reszta czeka na com
 - **Wygląd:** kolory moro jako zmienne CSS (`--camo-charcoal`, `--camo-dark-olive`, `--camo-olive`,
   `--camo-khaki`) z `src/lib/camo-colors.json`; miniatury z obrysem `--camo-charcoal` z odstępem.
 
+### Sesja 2026-11-09 (wieczorem): zdjęcia w widoku produktu, okładka z Discogs, dane demo
+
+Wszystko w commicie `00e9a07` (wypchnięty na `main`).
+
+**API**
+
+- `POST /products/{id}/variants/{variantId}/discogs-cover` (`products:update`): okładka wydania z Discogs (po
+  `discogsReleaseId` wariantu, zdjęcie „primary” albo pierwsze) jako kolejne zdjęcie wariantu, główne, gdy wariant
+  nie ma zdjęć. Zapisuje się z `alt` „Okładka z Discogs”; druga taka sama → 409. Pobiera tylko z `i.discogs.com`,
+  JPEG/PNG/WebP do 10 MB (`DiscogsClient.downloadImage`, `RecordLookupService.getReleaseCover`).
+- `PATCH /products/media/{id}` z `isPrimary: true` zdejmuje flagę z poprzedniego zdjęcia wariantu (wcześniej
+  kończyło się błędem unikalnego indeksu); w transakcji.
+- `ProductService.findVariant(productId, variantId)`.
+- Testy: 508.
+
+**Panel**
+
+- Nagłówek produktu: zdjęcie po lewej od tytułu, pod tytułem „Zobacz na Discogs” (master, a bez niego wydanie
+  pierwszego wariantu; `discogsUrl` w `lib/format.ts`), ostrzeżenia z ikoną „!”.
+- Warianty: miniatura o połowę mniejsza od zdjęcia w nagłówku (`RecordThumb` ma `size`, `variantPhoto`).
+- Edycja wariantu: przycisk „Pobierz cover z Discogs” (wyróżniony bez zdjęć, znika, gdy okładka już jest),
+  powiększenie zdjęcia po dotknięciu (`components/ui/PhotoViewer.tsx`) z „Ustaw jako główne”.
+- „← Produkty” / „← Szkice” cofa historię, gdy produkt otwarto z tej listy, więc wraca na to samo miejsce
+  (`lib/backToList.ts`, śledzenie ścieżki w `PanelShell`).
+
+**Dane demo (baza dev)**
+
+- Produkty wyczyszczone (TRUNCATE produktów, wariantów, mediów, `pending_uploads`, pliki w `uploads/products`) i
+  dodane przez API ze zdjęć `apps/api/uploads/okladki-demo` (skaner Claude → Discogs → `POST /products`): 20 płyt,
+  55 wariantów (1–3 dodatkowe na płytę: inne wydania z Discogs albo to samo tłoczenie w innym stanie), losowe
+  ilości 1–10, ceny 6–59 € (API trzyma ceny w centach), losowy stan płyty i okładki. Wszystkie opublikowane.
+- Bez odsłuchu: Rod Taylor „Ruff 'N' Tuff”, Matthew McAnuff „Be Careful” (jedyna bez Discogs), Murray Man.
+- Skrypt nie jest w repo (był w katalogu tymczasowym sesji). Jeśli potrzebny ponownie: logowanie jako bob, dla
+  każdego zdjęcia `POST /products/lookup/photo` → `GET /products/lookup/releases/{id}` → `POST /products` (albo
+  `POST /products/{id}/variants`, gdy `existingProducts` coś znajdzie); ceny w centach.
+
 ### Dokumenty
 
 - `docs/sprzedaz.md`: plan etapu sprzedaży (pulpit, zamówienia, Stripe, InPost, kolejność prac).
@@ -90,15 +126,16 @@ i ich poprawek. Pierwsza część jest w commicie `48acc3c`, reszta czeka na com
 
 ## Stan na koniec sesji
 
-- `main` lokalnie: `48acc3c feat: keep wizard label photos as resumable drafts` (jeden commit przed GitHubem,
-  niewypchnięty). **Reszta zmian z popołudnia nie jest zacommitowana** (API i panel, migracje 020 i 021 dodane do
-  gita); przed commitem warto przejrzeć diff.
-- Baza deweloperska: produkty i szkice wyczyszczone w trakcie sesji, teraz 1 produkt (Misty In Roots, 3 warianty).
-  Migracje do 021 zastosowane w bazie dev i testowej. Zamówienia z demo zostały.
+- `main` = `origin/main` = `00e9a07`, drzewo czyste.
+- Baza dev: 20 opublikowanych płyt demo (opis wyżej). Zamówienia z demo wyczyszczone (`TRUNCATE … CASCADE` objął
+  `order_items`). Migracje do 021.
+- Serwery dev zostały uruchomione w tle poprzedniej sesji; po restarcie komputera uruchomić je od nowa.
 
 ## Do zrobienia (według audytu i planu sprzedaży)
 
-1. **Commit zmian z popołudnia** (po przejrzeniu) i push.
+1. **Sprawdzić w przeglądarce** (nieprzeklikane): powiększenie zdjęcia i „Ustaw jako główne”, powrót na to samo
+   miejsce listy, link do Discogs. Okładki pobrane przed blokadą duplikatów nie mają `alt`, więc przycisk przy nich
+   dalej się pokazuje.
 2. **Kreator:** szkic działa od kroku 3; zostaje ostrzeżenie przed wyjściem, kroki w adresie i walidacja kroku 3.
    Stare szkice z wersji GPT (bez stanu) otwierają się na kroku ze zdjęciem.
 3. **Duplikaty:** podobne nazwy dla płyt bez danych z Discogs (`pg_trgm`, tylko podpowiedź); uzupełnienie
