@@ -35,7 +35,7 @@ const ConfirmModal = ({
         {children}
       </Text>
       {error && <ErrorState message={error} />}
-      <Button size="lg" fullWidth color={danger ? "red" : undefined} loading={loading} onClick={onConfirm}>
+      <Button size="lg" fullWidth color={danger ? "danger" : undefined} loading={loading} onClick={onConfirm}>
         {confirmLabel}
       </Button>
       <Button size="lg" variant="default" fullWidth onClick={onClose}>

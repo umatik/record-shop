@@ -89,7 +89,7 @@ const ConditionNoteField = ({
         </Paper>
       )}
       {error && (
-        <Text role="alert" c="red" fz="md">
+        <Text role="alert" c="danger" fz="md">
           {error}
         </Text>
       )}

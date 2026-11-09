@@ -14,7 +14,7 @@ type SaveSuccessProps = {
 const SaveSuccess = ({ result, recordName, onAddAnother }: SaveSuccessProps) => (
   <Stack component="section" aria-labelledby="save-success-title" gap="lg">
     <Stack align="center" gap="xs" py="md" role="status">
-      <ThemeIcon size={88} radius={100} variant="outline" color="green" style={{ borderWidth: 3 }} aria-hidden="true">
+      <ThemeIcon size={88} radius={100} variant="outline" color="success" style={{ borderWidth: 3 }} aria-hidden="true">
         <IconCheck size={52} stroke={2.5} />
       </ThemeIcon>
       <Title id="save-success-title" order={1} ta="center">
@@ -25,12 +25,12 @@ const SaveSuccess = ({ result, recordName, onAddAnother }: SaveSuccessProps) => 
       </Text>
     </Stack>
     {result.warnings.map((warning) => (
-      <Alert key={warning} color="yellow" variant="light" fz="md">
+      <Alert key={warning} color="warning" variant="light" fz="md">
         {describeWarning(warning)}
       </Alert>
     ))}
     {result.failedPhotos > 0 && (
-      <Alert color="red" variant="light" fz="md">
+      <Alert color="danger" variant="light" fz="md">
         Nie udało się wgrać {result.failedPhotos} zdjęć. Dodasz je przy edycji płyty.
       </Alert>
     )}

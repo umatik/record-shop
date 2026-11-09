@@ -286,7 +286,7 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
       {step === "details" && details && (
         <>
           {notice && (
-            <Alert color="yellow" variant="light" fz="md">
+            <Alert color="warning" variant="light" fz="md">
               {notice}
             </Alert>
           )}

@@ -13,12 +13,12 @@ const DraftBadges = ({ product }: DraftBadgesProps) => {
   return (
     <Group gap={8} mt={8}>
       {hints.length === 0 ? (
-        <Badge color="green" variant="light" size="xl" fz="sm" fw={600}>
+        <Badge color="success" variant="light" size="xl" fz="sm" fw={600}>
           gotowa do publikacji
         </Badge>
       ) : (
         hints.map((hint) => (
-          <Badge key={hint} color="yellow" variant="light" size="xl" fz="sm" fw={600}>
+          <Badge key={hint} color="warning" variant="light" size="xl" fz="sm" fw={600}>
             {hint}
           </Badge>
         ))

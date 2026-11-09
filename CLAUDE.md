@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository
 
 Monorepo (pnpm workspaces) for a small online record shop. The guiding principle is to keep the architecture simple for
-a small shop but open to growth, without overengineering. Docs and UI copy are in Polish.
+a small shop but open to growth, without overengineering. Docs and admin UI copy are in Polish. The storefront supports English (default), Spanish and Polish.
 
 - `apps/api`: the REST API (`@record-shop/api`). Its own `CLAUDE.md` covers architecture, conventions and tests.
 - `apps/admin`: the admin panel (`@record-shop/admin`), a prototype: Next.js 16 (App Router), Mantine 9, TanStack
@@ -13,6 +13,7 @@ a small shop but open to growth, without overengineering. Docs and UI copy are i
   keeps the API JWT in an httpOnly cookie, `/api/proxy/*` forwards requests to the API (`API_URL`) with that token,
   and `src/proxy.ts` redirects to `/login` without a session. `apps/admin/NOTES.md` lists what the panel needs from
   the API (written before the switch from Vite to Next).
+- `apps/shop`: sklep dla klientów w tym samym workspace. Zasady pracy i zakres prototypu opisuje [apps/shop/AGENTS.md](apps/shop/AGENTS.md).
 - `docs/audit`: past audit reports of the API (historical; line numbers refer to old paths).
 
 ## Commands

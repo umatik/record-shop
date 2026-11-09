@@ -80,7 +80,7 @@ const ProductDetail = ({ productId, openVariantId }: ProductDetailProps) => {
           {backHref === "/szkice" ? "Szkice" : "Produkty"}
         </Anchor>
         {product && (
-          <Badge color={product.isPublished ? "green" : "yellow"} variant="light" size="xl" fz="sm" fw={600}>
+          <Badge color={product.isPublished ? "success" : "warning"} variant="light" size="xl" fz="sm" fw={600}>
             {product.isPublished ? "W sprzedaży" : "Szkic"}
           </Badge>
         )}

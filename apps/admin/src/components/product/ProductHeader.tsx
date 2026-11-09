@@ -43,7 +43,7 @@ const ProductHeader = ({ product, warnings }: ProductHeaderProps) => {
       {warnings.map((warning) => (
         <Alert
           key={warning}
-          color="yellow"
+          color="warning"
           variant="light"
           fz="md"
           icon={<IconAlertCircle size={24} aria-hidden="true" />}

@@ -32,12 +32,12 @@ const LoginForm = () => {
     <form onSubmit={onSubmit} aria-label="Logowanie" suppressHydrationWarning>
       <Stack>
         {expired && !error && (
-          <Alert color="yellow" variant="light">
+          <Alert color="warning" variant="light">
             Sesja wygasła. Zaloguj się ponownie.
           </Alert>
         )}
         {error && (
-          <Alert color="red" variant="light">
+          <Alert color="danger" variant="light">
             {error}
           </Alert>
         )}

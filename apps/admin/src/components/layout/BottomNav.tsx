@@ -29,7 +29,7 @@ const BottomNav = ({ pathname }: BottomNavProps) => (
               component={Link}
               href={href}
               aria-current={active ? "page" : undefined}
-              c={active ? "blue" : "dimmed"}
+              c={active ? "camoOlive" : "dimmed"}
               w="100%"
               mih={48}
             >

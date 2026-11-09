@@ -55,7 +55,7 @@ const GradePicker = <T extends string>({ legend, grades, value, onChange, error 
         </Text>
       )}
       {error && (
-        <Text role="alert" c="red" fz="md" mt="xs">
+        <Text role="alert" c="danger" fz="md" mt="xs">
           {error}
         </Text>
       )}

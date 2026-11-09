@@ -1,10 +1,10 @@
 import type { OrderStatus } from "@/types/order";
 
 export const ORDER_STATUS: Record<OrderStatus, { label: string; color: string }> = {
-  pending: { label: "Czeka na płatność", color: "yellow" },
-  paid: { label: "Opłacone, do wysłania", color: "blue" },
-  shipped: { label: "Wysłane", color: "green" },
-  delivered: { label: "Doręczone", color: "green" },
+  pending: { label: "Czeka na płatność", color: "warning" },
+  paid: { label: "Opłacone, do wysłania", color: "camoOlive" },
+  shipped: { label: "Wysłane", color: "success" },
+  delivered: { label: "Doręczone", color: "success" },
   cancelled: { label: "Anulowane", color: "gray" },
 };
 

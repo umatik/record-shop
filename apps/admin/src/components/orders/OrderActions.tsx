@@ -60,7 +60,7 @@ const OrderActions = ({ order }: OrderActionsProps) => {
         <Button
           size="lg"
           variant="subtle"
-          color="red"
+          color="danger"
           fullWidth
           leftSection={<IconX size={24} aria-hidden="true" />}
           onClick={cancelModal.open}

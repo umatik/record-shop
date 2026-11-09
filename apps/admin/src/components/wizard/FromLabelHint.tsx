@@ -7,7 +7,7 @@ type FromLabelHintProps = {
 /** Plakietka przy polu, którego Discogs nie podał, a odczytał je Claude z labelu. */
 const FromLabelHint = ({ show }: FromLabelHintProps) =>
   show ? (
-    <Badge color="blue" variant="light" size="lg" fz="xs">
+    <Badge color="camoOlive" variant="light" size="lg" fz="xs">
       z labelu
     </Badge>
   ) : null;

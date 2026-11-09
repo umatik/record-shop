@@ -66,7 +66,7 @@ const SummaryStep = ({
     <Stack component="section" aria-labelledby="summary-step-title" gap="lg">
       <StepTitle id="summary-step-title" title="Podsumowanie" />
 
-      {target && <Alert color="blue">Dodajesz wariant do produktu #{target.productId}.</Alert>}
+      {target && <Alert color="camoOlive">Dodajesz wariant do produktu #{target.productId}.</Alert>}
       <RecordSummary
         details={details}
         variant={variant}
@@ -75,7 +75,7 @@ const SummaryStep = ({
       />
 
       {error && (
-        <Alert color="red" variant="light" title={error.message} fz="md">
+        <Alert color="danger" variant="light" title={error.message} fz="md">
           {error instanceof ApiError && error.errors.length > 0 && (
             <List fz="md">
               {error.errors.map((item) => (

@@ -23,7 +23,7 @@ const DeleteProductButton = ({ product }: DeleteProductButtonProps) => {
       <Button
         size="lg"
         variant="subtle"
-        color="red"
+        color="danger"
         fullWidth
         leftSection={<IconTrash size={24} aria-hidden="true" />}
         onClick={modal.open}

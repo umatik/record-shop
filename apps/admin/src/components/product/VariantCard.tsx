@@ -27,7 +27,14 @@ const describePressing = (attributes: Record<string, unknown>) =>
   [attributes.label, attributes.catalogNumber, attributes.year, attributes.country].filter(Boolean).join(" · ");
 
 /** Wariant (tłoczenie w danym stanie) jako wiersz z linią pod spodem. Kliknięcie otwiera edycję (tam też usuwanie). */
-const VariantCard = ({ productId, variant, position, last = false, openOnMount = false, onEditClose }: VariantCardProps) => {
+const VariantCard = ({
+  productId,
+  variant,
+  position,
+  last = false,
+  openOnMount = false,
+  onEditClose,
+}: VariantCardProps) => {
   const [editOpened, edit] = useDisclosure(openOnMount);
   const closeEdit = () => {
     if (!onEditClose?.()) edit.close();
@@ -58,7 +65,7 @@ const VariantCard = ({ productId, variant, position, last = false, openOnMount =
               <Text fz="xl" fw={700}>
                 {formatEur(variant.priceEur)}
               </Text>
-              <Text fz="lg" fw={600} c={variant.quantity === 0 ? "red" : undefined}>
+              <Text fz="lg" fw={600} c={variant.quantity === 0 ? "danger" : undefined}>
                 {variant.quantity === 0 ? "wyprzedane" : `${variant.quantity} szt.`}
               </Text>
             </Group>

@@ -37,7 +37,7 @@ const CancelOrderModal = ({ order, opened, onClose }: CancelOrderModalProps) => 
         {cancel.isError && <ErrorState message={cancel.error.message} />}
         <Button
           size="lg"
-          color="red"
+          color="danger"
           fullWidth
           disabled={!reason.trim()}
           loading={cancel.isPending}

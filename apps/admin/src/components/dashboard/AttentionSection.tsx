@@ -23,7 +23,7 @@ const AttentionSection = ({ pending, readyDrafts }: AttentionSectionProps) => {
   return (
     <Stack component="section" aria-labelledby="attention-title" gap={0}>
       <Divider mb="lg" />
-      <SectionHeading id="attention-title" title="Wymaga uwagi" />
+      <SectionHeading id="attention-title" title="Oczekuje na płatność" />
       {hasPending && <PendingOrders pending={pending} />}
       {hasPending && hasReady && <Divider />}
       {hasReady && (

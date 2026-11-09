@@ -90,7 +90,7 @@ const VariantEditModal = ({ productId, variant, opened, onClose }: VariantEditMo
         <Button
           size="lg"
           variant="subtle"
-          color="red"
+          color="danger"
           fullWidth
           leftSection={<IconTrash size={22} aria-hidden="true" />}
           onClick={confirmDelete.open}

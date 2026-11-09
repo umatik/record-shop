@@ -33,7 +33,7 @@ const DraftActions = ({ name, editHref, onDelete }: DraftActionsProps) => {
         <ActionIcon component={Link} href={editHref} size="xl" variant="light" aria-label={`Edytuj: ${name}`}>
           <IconPencil size={22} aria-hidden="true" />
         </ActionIcon>
-        <ActionIcon size="xl" variant="subtle" color="red" aria-label={`Usuń: ${name}`} onClick={confirm.open}>
+        <ActionIcon size="xl" variant="subtle" color="danger" aria-label={`Usuń: ${name}`} onClick={confirm.open}>
           <IconTrash size={22} aria-hidden="true" />
         </ActionIcon>
       </Group>

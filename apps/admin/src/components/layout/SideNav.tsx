@@ -26,7 +26,7 @@ const SideNav = ({ pathname }: SideNavProps) => {
             leftSection={<Icon size={20} aria-hidden="true" />}
             rightSection={
               href === "/szkice" && draftCount ? (
-                <Badge size="sm" color="yellow" variant="light" aria-label={`${draftCount} do dokończenia`}>
+                <Badge size="sm" color="warning" variant="light" aria-label={`${draftCount} do dokończenia`}>
                   {draftCount}
                 </Badge>
               ) : null

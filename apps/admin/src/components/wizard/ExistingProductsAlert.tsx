@@ -40,7 +40,7 @@ const ExistingProductsAlert = ({ matches, destination, onChange }: ExistingProdu
 
   return (
     <Alert
-      color={exact ? "blue" : "yellow"}
+      color={exact ? "camoOlive" : "warning"}
       variant="light"
       title={exact ? "To wydanie jest już w katalogu" : "Ta płyta jest już w katalogu"}
       fz="md"

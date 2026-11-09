@@ -1,18 +1,20 @@
-import { colorsTuple, createTheme, type CSSVariablesResolver } from "@mantine/core";
+import { createTheme, type CSSVariablesResolver } from "@mantine/core";
+import { adminColors, adminSurfaces } from "./admin-palette";
 import camoColors from "./camo-colors.json";
 
 /**
- * Motyw panelu. Marka jest czarno-biała (logo, typografia), a akcje i stany mają standardowe kolory:
- * niebieski dla akcji, żółty dla szkiców i braków, zielony dla gotowych.
+ * Motyw panelu oparty na moro: oliwka dla akcji, grafit dla tekstu i ciepłe, jasne tła.
+ * Statusy mają osobne ziemiste skale: success (zieleń), warning (ochra), danger (cegła).
  *
  * Czytelność przede wszystkim (panel obsługuje się z telefonu): bazowy tekst 18 px. Komponenty używają
  * nazwanych rozmiarów (`fz="xxl"`, `order={2}`), nie liczb, żeby zmiana skali była w jednym miejscu.
  */
 export const theme = createTheme({
-  // „Nasz biały”: bardzo jasna oliwka w odcieniu moro. Mantine bierze z niego tło strony, kart, okien i pól.
-  white: "#f8f8f6",
-  primaryColor: "blue",
-  colors: Object.fromEntries(Object.entries(camoColors).map(([name, hex]) => [name, colorsTuple(hex)])),
+  white: adminSurfaces.surface,
+  black: camoColors.camoCharcoal,
+  primaryColor: "camoOlive",
+  primaryShade: 6,
+  colors: adminColors,
   defaultRadius: "md",
   fontFamily: "var(--font-figtree), system-ui, sans-serif",
   fontSizes: {
@@ -35,16 +37,19 @@ export const theme = createTheme({
   // Mobile first: wygodne cele dotyku.
   components: {
     Button: { defaultProps: { size: "md" } },
-    TextInput: {
-      defaultProps: { size: "md" },
-      styles: { input: { backgroundColor: "#fff" } },
-    },
-    Textarea: {
-      defaultProps: { size: "md" },
-      styles: { input: { backgroundColor: "#fff" } },
-    },
+    Input: { classNames: { wrapper: "admin-input" } },
+    TextInput: { defaultProps: { size: "md" } },
+    Textarea: { defaultProps: { size: "md" } },
     PasswordInput: { defaultProps: { size: "md" } },
     Badge: { defaultProps: { tt: "none" } },
+    Paper: { styles: { root: { backgroundColor: "var(--admin-surface)" } } },
+    AppShell: {
+      styles: {
+        navbar: { backgroundColor: "var(--admin-surface)" },
+        footer: { backgroundColor: "var(--admin-surface)" },
+      },
+    },
+    Modal: { styles: { header: { backgroundColor: "var(--admin-surface)" } } },
   },
 });
 
@@ -59,6 +64,14 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: Object.fromEntries(
     Object.entries(camoColors).map(([name, hex]) => [`--${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, hex]),
   ),
-  light: {},
+  light: {
+    "--admin-surface": adminSurfaces.surface,
+    "--admin-input": adminSurfaces.input,
+    "--admin-control-border": adminSurfaces.controlBorder,
+    "--mantine-color-body": adminSurfaces.canvas,
+    "--mantine-color-placeholder": adminColors.gray[6],
+    "--mantine-color-error": "var(--mantine-color-danger-6)",
+    "--mantine-color-success": "var(--mantine-color-success-6)",
+  },
   dark: {},
 });

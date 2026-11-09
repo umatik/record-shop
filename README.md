@@ -6,9 +6,10 @@ Sklep internetowy z płytami winylowymi (reggae, nowe i używane), koszulkami i 
 |---------------|------------------------------------------------------------------------------------|
 | `apps/api`    | REST API: Node.js + TypeScript, Express 5, PostgreSQL, Redis. [README](apps/api/README.md) |
 | `apps/admin`  | Panel admina (prototyp): Next.js, Mantine. [Notatki](apps/admin/NOTES.md)                 |
+| `apps/shop`   | Sklep dla klientów (prototyp): Next.js, Mantine. [Wskazówki](apps/shop/AGENTS.md) |
 | `docs/audit`  | Raporty z audytów API                                                              |
 
-Sklep dla klientów (`apps/shop`) przyjdzie później.
+Sklep uruchom z katalogu głównego poleceniem `pnpm dev:shop`. Podgląd pod `http://localhost:3002` korzysta z przykładowych płyt.
 
 ## Szybki start
 

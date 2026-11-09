@@ -44,7 +44,7 @@ const PreviewLinksEditor = ({ product }: PreviewLinksEditorProps) => {
               </ExternalLink>
               <ActionIcon
                 variant="subtle"
-                color="red"
+                color="danger"
                 size="xl"
                 aria-label={`Usuń link ${url}`}
                 loading={update.isPending}

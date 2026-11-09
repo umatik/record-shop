@@ -25,7 +25,7 @@
 
 /* Geometryczne moro (public/patterns/camo.svg, z scripts/generate-camo.mjs): tło logowania i nagłówka. */
 .camo {
-  background-color: #3d4031;
+  background-color: var(--camo-dark-olive);
   background-image: url("/patterns/camo.svg");
   /* Na telefonie kafelek w połowie wielkości, żeby kliny miały podobną skalę względem ekranu jak na desktopie. */
   background-size: 640px 640px;
@@ -39,8 +39,16 @@
 
 /* Karta logowania: bardzo jasna oliwka, w odcieniu kolorów moro. */
 .camo-card {
-  --camo-card-bg: #ffffff;
-  background-color: var(--camo-card-bg);
+  background-color: var(--admin-surface);
+}
+
+/* Wyraźne obramowanie pól; fokus i walidację nadal obsługuje Mantine. */
+[data-mantine-color-scheme="light"] .admin-input[data-variant="default"] {
+  --input-bg: var(--admin-input);
+}
+
+[data-mantine-color-scheme="light"] .admin-input[data-variant="default"]:not([data-error]):not([data-success]) {
+  --input-bd: var(--admin-control-border);
 }
 
 /* Logo na ciemnym tle: odwrócone kolory, a `screen` ukrywa czarne (po odwróceniu) tło PNG. */

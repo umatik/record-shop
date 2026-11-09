@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850" role="img" aria-labelledby="title desc">
+<title id="title">Paleta kolorów camo dla panelu administratora RasBass</title>
+<desc id="desc">Cztery bazowe kolory moro, jasne powierzchnie oraz ziemiste kolory statusów z kodami szesnastkowymi i zastosowaniem.</desc>
+<rect width="1200" height="850" fill="#f4f4ee"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#26281f">
+<text x="48" y="55" font-size="14" font-weight="700" letter-spacing="2">RASBASS / PANEL ADMINISTRATORA</text>
+<rect x="984" y="31" width="168" height="34" rx="17" fill="#e7ebdc"/>
+<text x="1068" y="53" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1.4" fill="#4a5134">PALETA CAMO</text>
+<text x="48" y="115" font-size="44" font-weight="700" letter-spacing="-1.2">Oliwka, grafit i ziemiste akcenty.</text>
+<text x="48" y="151" font-size="18" fill="#656955">Kolory istniejącego moro jako baza spójnego, czytelnego panelu.</text>
+
+<rect x="48" y="188" width="258" height="220" rx="16" fill="#26281f"/>
+<text x="70" y="221" font-size="11" font-weight="700" letter-spacing="1.3" fill="#ffffff">camoCharcoal.6</text>
+<text x="70" y="278" font-size="24" font-weight="700" fill="#ffffff">Grafit camo</text>
+<text x="70" y="308" font-size="19" font-family="monospace" fill="#ffffff">#26281F</text>
+<text x="70" y="359" font-size="16" fill="#ffffff">Tekst główny</text>
+<text x="70" y="383" font-size="16" fill="#ffffff">i ciemne znaczniki</text>
+<rect x="330" y="188" width="258" height="220" rx="16" fill="#3b3e2f"/>
+<text x="352" y="221" font-size="11" font-weight="700" letter-spacing="1.3" fill="#ffffff">camoDarkOlive.6</text>
+<text x="352" y="278" font-size="24" font-weight="700" fill="#ffffff">Ciemna oliwka</text>
+<text x="352" y="308" font-size="19" font-family="monospace" fill="#ffffff">#3B3E2F</text>
+<text x="352" y="359" font-size="16" fill="#ffffff">Ciemne akcenty</text>
+<text x="352" y="383" font-size="16" fill="#ffffff">i skala neutralna</text>
+<rect x="612" y="188" width="258" height="220" rx="16" fill="#4a5134"/>
+<text x="634" y="221" font-size="11" font-weight="700" letter-spacing="1.3" fill="#ffffff">camoOlive.6</text>
+<text x="634" y="278" font-size="24" font-weight="700" fill="#ffffff">Oliwka</text>
+<text x="634" y="308" font-size="19" font-family="monospace" fill="#ffffff">#4A5134</text>
+<text x="634" y="359" font-size="16" fill="#ffffff">Przyciski, aktywne menu</text>
+<text x="634" y="383" font-size="16" fill="#ffffff">i pasek postępu</text>
+<rect x="894" y="188" width="258" height="220" rx="16" fill="#6b6e4c"/>
+<text x="916" y="221" font-size="11" font-weight="700" letter-spacing="1.3" fill="#ffffff">camoKhaki.6</text>
+<text x="916" y="278" font-size="24" font-weight="700" fill="#ffffff">Khaki</text>
+<text x="916" y="308" font-size="19" font-family="monospace" fill="#ffffff">#6B6E4C</text>
+<text x="916" y="359" font-size="16" fill="#ffffff">Akcenty pomocnicze</text>
+<text x="916" y="383" font-size="16" fill="#ffffff">i wzór moro</text>
+<text x="48" y="455" font-size="14" font-weight="700" letter-spacing="1.5">POWIERZCHNIE I STATUSY</text>
+<rect x="48" y="478" width="352" height="122" rx="14" fill="#fdfdf9" stroke="#cdd1bf"/>
+<rect x="64" y="496" width="62" height="62" rx="11" fill="#f4f4ee" stroke="#858b73"/>
+<text x="142" y="515" font-size="19" font-weight="700">Tło panelu</text>
+<text x="142" y="542" font-size="16" font-family="monospace" fill="#656955">#F4F4EE · canvas</text>
+<text x="64" y="582" font-size="15" fill="#656955">Tło stron i przestrzeń robocza</text>
+<rect x="424" y="478" width="352" height="122" rx="14" fill="#fdfdf9" stroke="#cdd1bf"/>
+<rect x="440" y="496" width="62" height="62" rx="11" fill="#fdfdf9" stroke="#858b73"/>
+<text x="518" y="515" font-size="19" font-weight="700">Karty i okna</text>
+<text x="518" y="542" font-size="16" font-family="monospace" fill="#656955">#FDFDF9 · surface</text>
+<text x="440" y="582" font-size="15" fill="#656955">Karty, okna i nawigacja</text>
+<rect x="800" y="478" width="352" height="122" rx="14" fill="#fdfdf9" stroke="#cdd1bf"/>
+<rect x="816" y="496" width="62" height="62" rx="11" fill="#656955"/>
+<text x="894" y="515" font-size="19" font-weight="700">Tekst pomocniczy</text>
+<text x="894" y="542" font-size="16" font-family="monospace" fill="#656955">#656955 · gray.6</text>
+<text x="816" y="582" font-size="15" fill="#656955">Opisy, wskazówki, tekst dimmed</text>
+<rect x="48" y="622" width="352" height="122" rx="14" fill="#fdfdf9" stroke="#cdd1bf"/>
+<rect x="64" y="640" width="62" height="62" rx="11" fill="#41633f"/>
+<text x="142" y="659" font-size="19" font-weight="700">Sukces</text>
+<text x="142" y="686" font-size="16" font-family="monospace" fill="#656955">#41633F · success.6</text>
+<text x="64" y="726" font-size="15" fill="#656955">Publikacja i zakończone czynności</text>
+<rect x="424" y="622" width="352" height="122" rx="14" fill="#fdfdf9" stroke="#cdd1bf"/>
+<rect x="440" y="640" width="62" height="62" rx="11" fill="#806019"/>
+<text x="518" y="659" font-size="19" font-weight="700">Uwaga</text>
+<text x="518" y="686" font-size="16" font-family="monospace" fill="#656955">#806019 · warning.6</text>
+<text x="440" y="726" font-size="15" fill="#656955">Szkice, braki danych i oczekiwanie</text>
+<rect x="800" y="622" width="352" height="122" rx="14" fill="#fdfdf9" stroke="#cdd1bf"/>
+<rect x="816" y="640" width="62" height="62" rx="11" fill="#963f36"/>
+<text x="894" y="659" font-size="19" font-weight="700">Błąd</text>
+<text x="894" y="686" font-size="16" font-family="monospace" fill="#656955">#963F36 · danger.6</text>
+<text x="816" y="726" font-size="15" fill="#656955">Błędy, usuwanie i anulowanie</text>
+<path d="M48 793H1152" stroke="#cdd1bf"/>
+<text x="48" y="823" font-size="14" fill="#656955">Kolor bazowy: odcień 6. Każda skala ma 10 odcieni do teł, tekstu i stanów interakcji.</text>
+<text x="1152" y="823" text-anchor="end" font-size="12" font-weight="700" letter-spacing="1.2" fill="#4a5134">RASBASS</text>
+</g></svg>
