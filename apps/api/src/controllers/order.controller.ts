@@ -2,7 +2,12 @@ import type { Response } from "express";
 import { ProductNotFoundError } from "@/errors/product-not-found.error.js";
 import { UserNotFoundError } from "@/errors/user-not-found.error.js";
 import { InsufficientStockError } from "@/errors/insufficient-stock.error.js";
-import { MANAGED_ORDER_SORTS, ORDER_STATUSES, SALES_PERIODS, type CreateOrderData } from "@/types/order.types.js";
+import {
+  MANAGED_ORDER_SORTS,
+  ORDER_STATUSES,
+  SALES_PERIODS,
+  type CreateOrderData,
+} from "@/types/order.types.js";
 import { z } from "zod";
 import type { Request } from "express";
 import { OrderService } from "@/services/order.service.js";
@@ -13,11 +18,20 @@ import { parseId } from "@/validators/helpers/id.validator.js";
 import { createPagination } from "@/utils/pagination.js";
 import { isValidPagination } from "@/validators/helpers/pagination.validator.js";
 import type { AuthorizationService } from "@/services/authorization.service.js";
+import type { EmailService } from "@/services/email.service.js";
+import {
+  buildOrdersCsv,
+  buildOrdersPdf,
+  describeScope,
+  summarize,
+} from "@/exports/orders-export.js";
+import type { ManagedOrderScope } from "@/types/order.types.js";
 
 export class OrderController {
   constructor(
     private orderService: OrderService,
     private authorizationService: AuthorizationService,
+    private emailService: EmailService,
   ) {}
 
   createOrder = async (req: AuthenticatedRequest, res: Response) => {
@@ -192,7 +206,12 @@ export class OrderController {
     const parsed = managedOrdersQuerySchema.safeParse(req.query);
 
     if (!parsed.success) {
-      res.status(400).json({ message: "Invalid query parameters", errors: formatZodIssues(parsed.error) });
+      res
+        .status(400)
+        .json({
+          message: "Invalid query parameters",
+          errors: formatZodIssues(parsed.error),
+        });
       return;
     }
 
@@ -207,14 +226,25 @@ export class OrderController {
       limit,
     });
 
-    res.status(200).json({ message: "Orders found", orders, pagination: createPagination(page, limit, total) });
+    res
+      .status(200)
+      .json({
+        message: "Orders found",
+        orders,
+        pagination: createPagination(page, limit, total),
+      });
   };
 
   getOrderSummary = async (req: Request, res: Response) => {
     const parsed = orderSummaryQuerySchema.safeParse(req.query);
 
     if (!parsed.success) {
-      res.status(400).json({ message: "Invalid query parameters", errors: formatZodIssues(parsed.error) });
+      res
+        .status(400)
+        .json({
+          message: "Invalid query parameters",
+          errors: formatZodIssues(parsed.error),
+        });
       return;
     }
 
@@ -222,6 +252,106 @@ export class OrderController {
 
     res.status(200).json({ message: "Order summary found", ...summary });
   };
+
+  /** Eksport historii do pobrania: CSV albo PDF, z tymi samymi filtrami co lista. */
+  exportManagedOrders = async (req: Request, res: Response) => {
+    const built = await this.buildExport(req, res);
+    if (!built) return;
+
+    res.setHeader("Content-Type", built.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${built.filename}"`,
+    );
+    res.status(200).send(built.content);
+  };
+
+  /** Ten sam eksport, wysłany mailem na adres z `ORDERS_EXPORT_EMAIL`. */
+  emailManagedOrders = async (req: Request, res: Response) => {
+    const recipient = process.env.ORDERS_EXPORT_EMAIL?.trim();
+    if (!recipient) {
+      res
+        .status(409)
+        .json({
+          message:
+            "Brak adresu do wysyłki eksportu (ustaw ORDERS_EXPORT_EMAIL w .env).",
+        });
+      return;
+    }
+
+    const built = await this.buildExport(req, res);
+    if (!built) return;
+
+    await this.emailService.sendOrdersExport({
+      to: recipient,
+      subject: `Historia zamówień RasBass (${built.filename})`,
+      text: `W załączniku historia zamówień: ${built.description}. Plik: ${built.filename}.`,
+      filename: built.filename,
+      content: built.content,
+      contentType: built.contentType,
+    });
+
+    res
+      .status(200)
+      .json({
+        message: "Export sent",
+        filename: built.filename,
+        orders: built.orders,
+      });
+  };
+
+  private async buildExport(req: Request, res: Response) {
+    const parsed = managedOrderExportSchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({
+          message: "Invalid query parameters",
+          errors: formatZodIssues(parsed.error),
+        });
+      return null;
+    }
+
+    const { format, status, from, to, q } = parsed.data;
+    const scope: ManagedOrderScope = {
+      ...(status !== "all" && { status }),
+      ...(from && { from }),
+      ...(to && { to }),
+      ...(q && { q }),
+    };
+
+    const orders = await this.orderService.exportManagedOrders(scope);
+    if (!orders) {
+      res
+        .status(400)
+        .json({
+          message: "Too many orders for one export. Narrow the date range.",
+        });
+      return null;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const generatedAt = new Date();
+
+    if (format === "csv") {
+      return {
+        content: buildOrdersCsv(orders),
+        contentType: "text/csv; charset=utf-8",
+        filename: `zamowienia-${today}.csv`,
+        description: describeScope(scope),
+        orders: summarize(orders).orders,
+      };
+    }
+
+    return {
+      content: await buildOrdersPdf(orders, scope, generatedAt),
+      contentType: "application/pdf",
+      filename: `zamowienia-${today}.pdf`,
+      description: describeScope(scope),
+      orders: summarize(orders).orders,
+    };
+  }
 
   getManagedOrder = async (req: Request, res: Response) => {
     const orderId = parseId(req.params.id);
@@ -269,11 +399,19 @@ export class OrderController {
     }
 
     if (!parsed.success) {
-      res.status(400).json({ message: "Invalid cancellation", errors: formatZodIssues(parsed.error) });
+      res
+        .status(400)
+        .json({
+          message: "Invalid cancellation",
+          errors: formatZodIssues(parsed.error),
+        });
       return;
     }
 
-    const order = await this.orderService.cancelOrder(orderId, parsed.data.reason);
+    const order = await this.orderService.cancelOrder(
+      orderId,
+      parsed.data.reason,
+    );
 
     if (!order) {
       res.status(404).json({ message: "Order not found" });
@@ -294,10 +432,20 @@ const managedOrdersQuerySchema = z.object({
   q: z.string().trim().min(1).max(255).optional(),
 });
 
+const managedOrderExportSchema = z.object({
+  format: z.enum(["csv", "pdf"]),
+  status: z.enum([...ORDER_STATUSES, "all"]).default("all"),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  q: z.string().trim().min(1).max(255).optional(),
+});
+
 const orderSummaryQuerySchema = z.object({
   days: z.coerce
     .number()
-    .refine((value): value is (typeof SALES_PERIODS)[number] => SALES_PERIODS.some((period) => period === value))
+    .refine((value): value is (typeof SALES_PERIODS)[number] =>
+      SALES_PERIODS.some((period) => period === value),
+    )
     .default(30),
 });
 

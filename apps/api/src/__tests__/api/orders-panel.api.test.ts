@@ -226,3 +226,73 @@ describe("Order history filters", () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe("Order history export", () => {
+  const download = (query: string) =>
+    request(app)
+      .get(`/orders/manage/export?${query}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+  it("should be available only with orders:manage", async () => {
+    const user = await request(app)
+      .get("/orders/manage/export?format=csv")
+      .set("Authorization", `Bearer ${userToken}`);
+
+    expect(user.status).toBe(403);
+  });
+
+  it("should export a CSV with one row per item, respecting the status filter", async () => {
+    const paid = await placeOrder(1);
+    await request(app).post(`/orders/${paid}/mark-paid`).set("Authorization", `Bearer ${adminToken}`);
+    await placeOrder(1);
+
+    const response = await download("format=csv&status=paid");
+    const text = response.body.toString("utf8");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+    expect(response.headers["content-disposition"]).toMatch(/^attachment; filename="zamowienia-\d{4}-\d{2}-\d{2}\.csv"$/);
+    expect(text.startsWith("﻿Numer zamówienia;")).toBe(true);
+    const lines = text.trim().split(/\r\n/);
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain(`${paid};`);
+    expect(lines[1]).toContain("Opłacone");
+    expect(lines[1]).toContain(";15,00;15,00");
+  });
+
+  it("should export a PDF", async () => {
+    await placeOrder(1);
+
+    const response = await download("format=pdf");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toBe("application/pdf");
+    expect(response.body.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+  });
+
+  it("should reject an unknown format", async () => {
+    const response = await request(app)
+      .get("/orders/manage/export?format=xlsx")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("should not send the export by e-mail without ORDERS_EXPORT_EMAIL", async () => {
+    const previous = process.env.ORDERS_EXPORT_EMAIL;
+    delete process.env.ORDERS_EXPORT_EMAIL;
+
+    const response = await request(app)
+      .post("/orders/manage/export/email?format=pdf")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    if (previous !== undefined) process.env.ORDERS_EXPORT_EMAIL = previous;
+    expect(response.status).toBe(409);
+  });
+});

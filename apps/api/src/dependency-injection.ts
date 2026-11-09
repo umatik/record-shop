@@ -224,11 +224,12 @@ export const settingsRouter = createSettingsRouter(
 );
 
 // Order
+const emailService = new EmailService();
 const orderRepository = new OrderPostgresRepository();
 
 const orderService = new OrderService(orderRepository, pool, productCache);
 
-const orderController = new OrderController(orderService, authorizationService);
+const orderController = new OrderController(orderService, authorizationService, emailService);
 
 export const orderRouter = createOrderRouter(
   orderController,
@@ -249,7 +250,6 @@ const userService = new UserService(
 
 const passwordResetTokenRepository = new PasswordResetTokenPostgresRepository();
 
-const emailService = new EmailService();
 
 const passwordResetService = new PasswordResetService(
   userRepository,

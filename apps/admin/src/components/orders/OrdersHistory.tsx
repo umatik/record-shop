@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, CloseButton, NativeSelect, SimpleGrid, Stack, TextInput } from "@mantine/core";
+import { Button, CloseButton, Group, NativeSelect, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconSearch } from "@tabler/icons-react";
+import { IconDownload, IconMail, IconSearch } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import RowList from "@/components/records/RowList";
@@ -12,6 +12,7 @@ import LoadingState from "@/components/ui/LoadingState";
 import PageTitle from "@/components/ui/PageTitle";
 import { useOrderList } from "@/hooks/useOrders";
 import { count } from "@/lib/format";
+import { orderExportHref, sendOrdersExport } from "@/services/orders.services";
 import type { OrderStatus } from "@/types/order";
 import OrderRow from "./OrderRow";
 import { ORDER_STATUS, ORDER_STATUSES } from "./orderStatus";
@@ -72,6 +73,31 @@ const OrdersHistory = ({ status, from = "", to = "", initialSearch = "" }: Order
   };
 
   const filtered = !!(status || from || to || q);
+  const filters = {
+    sort: "newest" as const,
+    ...(status && { status }),
+    ...(from && { from }),
+    ...(to && { to }),
+    ...(q && { q }),
+  };
+
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const mail = async () => {
+    setSending(true);
+    setNotice(null);
+    try {
+      const result = await sendOrdersExport(filters, "pdf");
+      setNotice({
+        ok: true,
+        text: `Wysłano ${result.filename} (${count(result.orders, ["zamówienie", "zamówienia", "zamówień"])}).`,
+      });
+    } catch (error) {
+      setNotice({ ok: false, text: error instanceof Error ? error.message : "Nie udało się wysłać eksportu." });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <Stack component="section" aria-labelledby="orders-title" gap="lg" maw={640} mx="auto">
@@ -135,6 +161,43 @@ const OrdersHistory = ({ status, from = "", to = "", initialSearch = "" }: Order
           >
             Wyczyść filtry
           </Button>
+        )}
+      </Stack>
+
+      <Stack gap="xs" component="section" aria-label="Eksport historii">
+        <Group gap="sm" wrap="wrap">
+          <Button
+            component="a"
+            href={orderExportHref(filters, "pdf")}
+            variant="light"
+            leftSection={<IconDownload size={18} aria-hidden="true" />}
+            disabled={list.total === 0}
+          >
+            Pobierz PDF
+          </Button>
+          <Button
+            component="a"
+            href={orderExportHref(filters, "csv")}
+            variant="light"
+            leftSection={<IconDownload size={18} aria-hidden="true" />}
+            disabled={list.total === 0}
+          >
+            Pobierz CSV
+          </Button>
+          <Button
+            variant="default"
+            onClick={() => void mail()}
+            loading={sending}
+            disabled={list.total === 0}
+            leftSection={<IconMail size={18} aria-hidden="true" />}
+          >
+            Wyślij PDF mailem
+          </Button>
+        </Group>
+        {notice && (
+          <Text role={notice.ok ? "status" : "alert"} fz="sm" c={notice.ok ? "success.8" : "danger.8"}>
+            {notice.text}
+          </Text>
         )}
       </Stack>
 

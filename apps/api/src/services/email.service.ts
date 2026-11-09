@@ -33,6 +33,30 @@ export class EmailService {
     });
   }
 
+  /** Wysyła plik z eksportem zamówień jako załącznik. */
+  async sendOrdersExport(options: {
+    to: string;
+    subject: string;
+    text: string;
+    filename: string;
+    content: Buffer;
+    contentType: string;
+  }): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.from,
+      to: options.to,
+      subject: options.subject,
+      text: options.text,
+      attachments: [
+        {
+          filename: options.filename,
+          content: options.content,
+          contentType: options.contentType,
+        },
+      ],
+    });
+  }
+
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
     await this.transporter.sendMail({
       from: this.from,

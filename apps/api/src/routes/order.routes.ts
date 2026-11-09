@@ -34,7 +34,10 @@ export const createOrderRouter = (
     orderController.getOrders,
   );
 
-  const canManage = [authenticationMiddleware, requirePermission(authorizationService, "orders:manage")];
+  const canManage = [
+    authenticationMiddleware,
+    requirePermission(authorizationService, "orders:manage"),
+  ];
 
   /**
    * @openapi
@@ -90,6 +93,63 @@ export const createOrderRouter = (
    *         description: Missing orders:manage
    */
   router.get("/manage/summary", ...canManage, orderController.getOrderSummary);
+
+  /**
+   * @openapi
+   * /orders/manage/export:
+   *   get:
+   *     tags: [Orders – admin panel]
+   *     summary: Download the order history as CSV or PDF (same filters as the list)
+   *     description: CSV has one row per item, PDF is a summary with each order's items. Max 5000 orders.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: query, name: format, required: true, schema: { type: string, enum: [csv, pdf] } }
+   *       - { in: query, name: status, schema: { type: string, enum: [all, pending, paid, shipped, delivered, cancelled], default: all } }
+   *       - { in: query, name: from, schema: { type: string, format: date } }
+   *       - { in: query, name: to, schema: { type: string, format: date } }
+   *       - { in: query, name: q, schema: { type: string } }
+   *     responses:
+   *       200:
+   *         description: The file as an attachment
+   *       400:
+   *         description: Invalid filters, or more than 5000 orders
+   *       403:
+   *         description: Missing orders:manage
+   */
+  router.get(
+    "/manage/export",
+    ...canManage,
+    orderController.exportManagedOrders,
+  );
+
+  /**
+   * @openapi
+   * /orders/manage/export/email:
+   *   post:
+   *     tags: [Orders – admin panel]
+   *     summary: Send the order history export by e-mail to ORDERS_EXPORT_EMAIL
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: query, name: format, required: true, schema: { type: string, enum: [csv, pdf] } }
+   *       - { in: query, name: status, schema: { type: string, enum: [all, pending, paid, shipped, delivered, cancelled], default: all } }
+   *       - { in: query, name: from, schema: { type: string, format: date } }
+   *       - { in: query, name: to, schema: { type: string, format: date } }
+   *       - { in: query, name: q, schema: { type: string } }
+   *     responses:
+   *       200:
+   *         description: E-mail sent
+   *       400:
+   *         description: Invalid filters, or more than 5000 orders
+   *       409:
+   *         description: ORDERS_EXPORT_EMAIL is not set
+   */
+  router.post(
+    "/manage/export/email",
+    ...canManage,
+    orderController.emailManagedOrders,
+  );
 
   /**
    * @openapi

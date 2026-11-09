@@ -3,6 +3,7 @@ import type {
   CreateOrderData,
   ManagedOrder,
   ManagedOrderFilters,
+  ManagedOrderScope,
   Order,
   OrderDetails,
   OrderStatus,
@@ -14,6 +15,10 @@ import type { PoolClient } from "pg";
 import type { OrderInterface } from "@/repositories/order/order.interface.js";
 import type { Cache } from "@/cache/cache.interface.js";
 import type { Database } from "@/database/database.interface.js";
+
+/** Najwięcej zamówień w jednym eksporcie i wielkość strony, po której eksport je zbiera. */
+export const EXPORT_LIMIT = 5000;
+const EXPORT_PAGE = 100;
 
 export class OrderService {
   constructor(
@@ -143,7 +148,9 @@ export class OrderService {
 
   // ---- Obsługa zamówień w panelu (docs/sprzedaz.md) ----
 
-  async getManagedOrders(filters: ManagedOrderFilters): Promise<{ orders: ManagedOrder[]; total: number }> {
+  async getManagedOrders(
+    filters: ManagedOrderFilters,
+  ): Promise<{ orders: ManagedOrder[]; total: number }> {
     const client = await this.pool.connect();
 
     try {
@@ -151,6 +158,37 @@ export class OrderService {
       const total = await this.orderRepository.countManaged(client, filters);
 
       return { orders, total };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Wszystkie zamówienia pasujące do filtrów, do eksportu. Zwraca `null`, gdy jest ich więcej niż
+   * `EXPORT_LIMIT`: plik z tysiącami zamówień nie ma sensu, lepiej zawęzić zakres dat.
+   */
+  async exportManagedOrders(
+    scope: ManagedOrderScope,
+  ): Promise<ManagedOrder[] | null> {
+    const client = await this.pool.connect();
+
+    try {
+      const total = await this.orderRepository.countManaged(client, scope);
+      if (total > EXPORT_LIMIT) return null;
+
+      const orders: ManagedOrder[] = [];
+      for (let page = 1; orders.length < total; page += 1) {
+        const batch = await this.orderRepository.findManaged(client, {
+          ...scope,
+          sort: "oldest",
+          page,
+          limit: EXPORT_PAGE,
+        });
+        if (batch.length === 0) break;
+        orders.push(...batch);
+      }
+
+      return orders;
     } finally {
       client.release();
     }
@@ -201,7 +239,8 @@ export class OrderService {
   /** Ręczne potwierdzenie płatności (np. przelew), zanim płatności obsłuży Stripe. */
   async markOrderPaid(orderId: number): Promise<ManagedOrder | null> {
     return this.changeStatus(orderId, async (client, status) => {
-      if (status !== "pending") throw new OrderStatusConflictError("mark as paid", status);
+      if (status !== "pending")
+        throw new OrderStatusConflictError("mark as paid", status);
       await this.orderRepository.markPaid(client, orderId);
     });
   }
@@ -210,11 +249,19 @@ export class OrderService {
    * Anulowanie przed wysyłką: płyty wracają do sprzedaży, powód trafia do klienta.
    * Zwrot pieniędzy za opłacone zamówienie dojdzie razem ze Stripe.
    */
-  async cancelOrder(orderId: number, reason: string): Promise<ManagedOrder | null> {
-    return this.changeStatus(orderId, async (client, status) => {
-      if (status !== "pending" && status !== "paid") throw new OrderStatusConflictError("cancel", status);
-      await this.orderRepository.cancel(client, orderId, reason);
-    }, true);
+  async cancelOrder(
+    orderId: number,
+    reason: string,
+  ): Promise<ManagedOrder | null> {
+    return this.changeStatus(
+      orderId,
+      async (client, status) => {
+        if (status !== "pending" && status !== "paid")
+          throw new OrderStatusConflictError("cancel", status);
+        await this.orderRepository.cancel(client, orderId, reason);
+      },
+      true,
+    );
   }
 
   /** Zmiana statusu w transakcji z blokadą zamówienia; `null`, gdy zamówienia nie ma. */

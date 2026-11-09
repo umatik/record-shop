@@ -32,7 +32,13 @@ async function forward(request: NextRequest, { params }: { params: Promise<{ pat
 
   const response = new NextResponse(apiResponse.body, {
     status: apiResponse.status,
-    headers: { "content-type": apiResponse.headers.get("content-type") ?? "application/json" },
+    headers: {
+      "content-type": apiResponse.headers.get("content-type") ?? "application/json",
+      // Nazwa pliku z eksportu (`attachment; filename=…`) musi dojść do przeglądarki.
+      ...(apiResponse.headers.get("content-disposition") && {
+        "content-disposition": apiResponse.headers.get("content-disposition") as string,
+      }),
+    },
   });
   // Wygasły token: czyścimy ciasteczko, panel wróci do logowania.
   if (apiResponse.status === 401) response.cookies.delete(SESSION_COOKIE);
