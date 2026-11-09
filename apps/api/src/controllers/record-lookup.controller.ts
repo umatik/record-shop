@@ -9,6 +9,10 @@ import type { LabelDraftService } from "@/services/label-draft.service.js";
 import { PhotoLookupError } from "@/errors/external-service.error.js";
 import type { ProductService } from "@/services/product.service.js";
 import { formatZodIssues } from "@/validators/helpers/zod.js";
+import type { ProductVariantMediaService } from "@/services/product-variant-media.service.js";
+
+/** Opis okładki z Discogs; po nim rozpoznajemy, że wariant już ją ma (panel ukrywa wtedy przycisk). */
+export const DISCOGS_COVER_ALT = "Okładka z Discogs";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -39,44 +43,21 @@ const existingProductsQuerySchema = z
     label: z.string().trim().min(1).max(255).optional(),
     title: z.string().trim().min(1).max(255).optional(),
     artist: z.string().trim().min(1).max(255).optional(),
+    discogsMasterId: z.coerce.number().int().positive().optional(),
+    discogsArtistId: z.coerce.number().int().positive().optional(),
   })
   .refine(
     (query) =>
       query.discogsReleaseId !== undefined ||
       query.catalogNumber !== undefined ||
-      query.title !== undefined,
-    { message: "Provide discogsReleaseId, catalogNumber or title" },
+      query.title !== undefined ||
+      query.discogsMasterId !== undefined,
+    { message: "Provide discogsReleaseId, catalogNumber, discogsMasterId or title" },
   );
 
 const conditionNoteSchema = z.strictObject({
   text: z.string().trim().min(1).max(1000),
 });
-
-function parsePhotos(req: Request, allowEmpty = false) {
-  const files = Array.isArray(req.files) ? req.files : [];
-
-  if ((!allowEmpty && files.length === 0) || files.length > MAX_LABEL_IMAGES) {
-    throw new AppError(`Send 1–${MAX_LABEL_IMAGES} label photos in the "images" field`, 400);
-  }
-
-  const images: LabelImage[] = [];
-
-  for (const file of files) {
-    const mediaType = IMAGE_TYPES.find((type) => type === file.mimetype);
-
-    if (!mediaType) {
-      throw new AppError("Label photos must be JPEG, PNG or WebP", 400);
-    }
-
-    if (file.size > MAX_LABEL_IMAGE_BYTES) {
-      throw new AppError("Each label photo can be at most 5 MB", 400);
-    }
-
-    images.push({ data: file.buffer, mediaType });
-  }
-
-  return images;
-}
 
 function draftId(req: Request) {
   const parsed = z.uuid().safeParse(req.params.id);
@@ -88,27 +69,75 @@ function draftId(req: Request) {
   return parsed.data;
 }
 
-/** Identyfikatory zdjęć szkicu, które widział panel, po przecinku w kolejności. */
-function previousPhotoIds(req: Request) {
-  const raw: unknown = req.body?.previous;
-  const parsed = z
+/** Zdjęcia labelu w kolejności i stan kreatora, który panel odtworzy po powrocie do szkicu. */
+const saveDraftSchema = z.strictObject({
+  photoUploadIds: z
     .array(z.uuid())
+    .min(1)
     .max(MAX_LABEL_IMAGES)
-    .safeParse(typeof raw === "string" ? raw.split(",").filter(Boolean) : []);
-
-  if (!parsed.success) {
-    throw new AppError("Invalid photo ids", 400);
-  }
-
-  return parsed.data;
-}
+    .refine((ids) => new Set(ids).size === ids.length, { message: "Photo ids must be unique" }),
+  state: z.record(z.string(), z.unknown()),
+});
 
 export class RecordLookupController {
   constructor(
     private readonly recordLookupService: RecordLookupService,
     private readonly productService: ProductService,
     private readonly drafts: LabelDraftService,
+    private readonly media: ProductVariantMediaService,
   ) {}
+
+  /** Okładka wydania z Discogs (po `discogsReleaseId` wariantu) jako kolejne zdjęcie wariantu. */
+  addDiscogsCover = async (req: Request, res: Response) => {
+    const productId = parseId(req.params.id);
+    const variantId = parseId(req.params.variantId);
+
+    if (productId === null || variantId === null) {
+      res.status(400).json({ message: "Invalid product or variant id" });
+      return;
+    }
+
+    const variant = await this.productService.findVariant(productId, variantId);
+
+    if (!variant) {
+      res.status(404).json({ message: "Product variant not found" });
+      return;
+    }
+
+    const releaseId = variant.attributes.discogsReleaseId;
+
+    if (typeof releaseId !== "number") {
+      res.status(400).json({ message: "The variant is not linked to a Discogs release" });
+      return;
+    }
+
+    const cover = await this.recordLookupService.getReleaseCover(releaseId);
+
+    if (!cover) {
+      res.status(404).json({ message: "Discogs has no cover for this release" });
+      return;
+    }
+
+    const photos = variant.media.filter((media) => media.type === "photo");
+
+    if (photos.some((photo) => photo.alt === DISCOGS_COVER_ALT)) {
+      res.status(409).json({ message: "The variant already has the Discogs cover" });
+      return;
+    }
+
+    const media = await this.media.create(
+      variantId,
+      cover.data,
+      `discogs-${releaseId}.${cover.contentType.split("/")[1]}`,
+      cover.contentType,
+      DISCOGS_COVER_ALT,
+      photos.reduce((max, photo) => Math.max(max, photo.sortOrder), 0) + 1,
+      // Pierwsze zdjęcie wariantu staje się główne, tak jak zdjęcie labelu z kreatora.
+      photos.length === 0,
+    );
+
+    res.status(201).json(media);
+  };
 
   listDrafts = async (_req: Request, res: Response) => {
     res.json({ drafts: await this.drafts.list() });
@@ -119,21 +148,49 @@ export class RecordLookupController {
   };
 
   saveDraft = async (req: Request, res: Response) => {
-    const previous = previousPhotoIds(req);
-    const photos = parsePhotos(req, previous.length > 0);
-    const userId = (req as AuthenticatedRequest).user?.userId;
+    const parsed = saveDraftSchema.safeParse(req.body);
 
-    res.json(
-      await this.drafts.replace(draftId(req), previous, photos, userId ? Number(userId) : null),
-    );
+    if (!parsed.success) {
+      res.status(400).json({ message: "Invalid draft", errors: formatZodIssues(parsed.error) });
+      return;
+    }
+
+    res.json(await this.drafts.save(draftId(req), parsed.data.photoUploadIds, parsed.data.state));
   };
 
-  readDraft = async (req: Request, res: Response) => {
-    res.json(await this.drafts.read(draftId(req), previousPhotoIds(req)));
+  deleteDraft = async (req: Request, res: Response) => {
+    await this.drafts.delete(draftId(req));
+    res.status(204).send();
   };
 
   lookupByPhoto = async (req: Request, res: Response) => {
-    const images = parsePhotos(req);
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    if (files.length === 0 || files.length > MAX_LABEL_IMAGES) {
+      res.status(400).json({
+        message: `Send 1–${MAX_LABEL_IMAGES} label photos in the "images" field`,
+      });
+      return;
+    }
+
+    const images: LabelImage[] = [];
+
+    for (const file of files) {
+      const mediaType = IMAGE_TYPES.find((type) => type === file.mimetype);
+
+      if (!mediaType) {
+        res.status(400).json({ message: "Label photos must be JPEG, PNG or WebP" });
+        return;
+      }
+
+      if (file.size > MAX_LABEL_IMAGE_BYTES) {
+        res.status(400).json({ message: "Each label photo can be at most 5 MB" });
+        return;
+      }
+
+      images.push({ data: file.buffer, mediaType });
+    }
+
     const userId = (req as AuthenticatedRequest).user?.userId;
 
     try {
@@ -201,6 +258,8 @@ export class RecordLookupController {
       label: draft.variant.attributes.label,
       title: draft.product.title,
       artists: draft.product.attributes.artists,
+      discogsMasterId: draft.product.attributes.discogsMasterId,
+      discogsArtistIds: draft.product.attributes.discogsArtistIds,
     });
 
     res.status(200).json({ message: "Release found", draft, existingProducts });
@@ -217,11 +276,12 @@ export class RecordLookupController {
       return;
     }
 
-    const { artist, ...criteria } = parsed.data;
+    const { artist, discogsArtistId, ...criteria } = parsed.data;
 
     const existingProducts = await this.productService.findMatchingProducts({
       ...criteria,
       artists: artist ? [artist] : undefined,
+      discogsArtistIds: discogsArtistId ? [discogsArtistId] : undefined,
     });
 
     res.status(200).json({ message: "Existing products found", existingProducts });

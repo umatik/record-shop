@@ -7,43 +7,47 @@ import type {
   LabelDraft,
   LabelDraftRepository,
 } from "@/repositories/label-draft/label-draft.interface.js";
-import type { RecordLookupService } from "@/services/record-lookup.service.js";
-import { PhotoLookupError } from "@/errors/external-service.error.js";
-import { LabelDraftConflictError, LabelDraftNotFoundError } from "@/errors/label-draft.error.js";
+import {
+  LabelDraftNotFoundError,
+  LabelDraftPhotosUnavailableError,
+} from "@/errors/label-draft.error.js";
 
 const DRAFT_ID = "c192ab28-aa58-48e9-b0c9-b7c7780b25c0";
-const photo = (id: string) => ({ id, path: `products/photo/label-${id}.jpg`, contentType: "image/jpeg" as const });
-const image = { data: Buffer.from("label"), mediaType: "image/jpeg" as const };
-const draft = (photos = [photo("a")]): LabelDraft => ({ id: DRAFT_ID, photos, result: null, createdAt: new Date() });
+const photo = (id: string) => ({ id, path: `products/photo/label-${id}.jpg`, contentType: "image/jpeg" });
+const state = { details: { title: "News Carrier" } };
+const draft = (ids: string[]): LabelDraft => ({
+  id: DRAFT_ID,
+  photos: ids.map(photo),
+  state,
+  createdAt: new Date(),
+});
 
 describe("LabelDraftService", () => {
   let drafts: jest.Mocked<LabelDraftRepository>;
   let storage: jest.Mocked<Storage>;
   let mockClient: { query: jest.Mock; release: jest.Mock };
   let client: PoolClient;
-  let readLabelPhotos: jest.Mock<RecordLookupService["readLabelPhotos"]>;
   let service: LabelDraftService;
 
   beforeEach(() => {
     drafts = {
       list: jest.fn(),
-      lock: jest.fn(),
+      lock: jest.fn<LabelDraftRepository["lock"]>().mockResolvedValue([]),
+      attachPending: jest.fn<LabelDraftRepository["attachPending"]>(async (_c, _id, ids) => ids),
+      saveState: jest.fn(),
       deletePhotos: jest.fn(),
-      addPhoto: jest.fn(),
-      saveResult: jest.fn(),
       deleteAbandoned: jest.fn<LabelDraftRepository["deleteAbandoned"]>().mockResolvedValue([]),
     };
     storage = {
-      save: jest.fn<Storage["save"]>(async (_file, filename) => filename),
-      read: jest.fn<Storage["read"]>(async () => Buffer.from("label")),
+      save: jest.fn(),
+      copy: jest.fn(),
       delete: jest.fn<Storage["delete"]>(async () => undefined),
       exists: jest.fn(),
     };
     mockClient = { query: jest.fn(), release: jest.fn() };
     client = mockClient as unknown as PoolClient;
     const pool: Database = { connect: async () => client };
-    readLabelPhotos = jest.fn<RecordLookupService["readLabelPhotos"]>();
-    service = new LabelDraftService(drafts, storage, pool, { readLabelPhotos });
+    service = new LabelDraftService(drafts, storage, pool);
   });
 
   describe("get", () => {
@@ -55,78 +59,74 @@ describe("LabelDraftService", () => {
     });
   });
 
-  describe("replace", () => {
-    it("swaps the photos in a transaction and deletes the old files after commit", async () => {
-      drafts.lock.mockResolvedValue([photo("a")]);
+  describe("save", () => {
+    it("takes pending photos into a new draft with the wizard state", async () => {
+      drafts.list.mockResolvedValue([draft(["a", "b"])]);
 
-      const result = await service.replace(DRAFT_ID, ["a"], [image], 7);
+      const saved = await service.save(DRAFT_ID, ["a", "b"], state);
 
-      expect(drafts.deletePhotos).toHaveBeenCalledWith(client, DRAFT_ID);
-      expect(drafts.addPhoto).toHaveBeenCalledWith(
-        client,
-        expect.objectContaining({ draftId: DRAFT_ID, position: 0, createdBy: 7, contentType: "image/jpeg" }),
-      );
-      expect(result.photos).toHaveLength(1);
+      expect(drafts.attachPending).toHaveBeenCalledWith(client, DRAFT_ID, ["a", "b"], 24 * 60 * 60 * 1000);
+      expect(drafts.saveState).toHaveBeenCalledWith(client, DRAFT_ID, ["a", "b"], state);
+      expect(drafts.deletePhotos).not.toHaveBeenCalled();
       expect(mockClient.query.mock.calls.map(([sql]) => sql)).toEqual(["BEGIN", "COMMIT"]);
+      expect(saved.photos.map((p) => p.id)).toEqual(["a", "b"]);
+    });
+
+    it("keeps photos already in the draft and only updates the state", async () => {
+      drafts.lock.mockResolvedValue([photo("a")]);
+      drafts.list.mockResolvedValue([draft(["a"])]);
+
+      await service.save(DRAFT_ID, ["a"], state);
+
+      expect(drafts.attachPending).toHaveBeenCalledWith(client, DRAFT_ID, [], expect.any(Number));
+      expect(storage.delete).not.toHaveBeenCalled();
+    });
+
+    it("replaces photos after a new label lookup and deletes the old files after commit", async () => {
+      drafts.lock.mockResolvedValue([photo("a")]);
+      drafts.list.mockResolvedValue([draft(["b"])]);
+
+      await service.save(DRAFT_ID, ["b"], state);
+
+      expect(drafts.deletePhotos).toHaveBeenCalledWith(client, DRAFT_ID, ["a"]);
       expect(storage.delete).toHaveBeenCalledWith("products/photo/label-a.jpg");
     });
 
-    it("rejects a stale photo list and keeps the files", async () => {
-      drafts.lock.mockResolvedValue([photo("a"), photo("b")]);
+    it("rejects expired or already used photos and keeps the files", async () => {
+      drafts.lock.mockResolvedValue([photo("a")]);
+      drafts.attachPending.mockResolvedValue([]);
 
-      await expect(service.replace(DRAFT_ID, ["a"], [image], 7)).rejects.toBeInstanceOf(
-        LabelDraftConflictError,
+      await expect(service.save(DRAFT_ID, ["b"], state)).rejects.toBeInstanceOf(
+        LabelDraftPhotosUnavailableError,
       );
       expect(mockClient.query).toHaveBeenLastCalledWith("ROLLBACK");
-      expect(storage.save).not.toHaveBeenCalled();
+      expect(drafts.saveState).not.toHaveBeenCalled();
       expect(storage.delete).not.toHaveBeenCalled();
     });
 
     it("removes the files of abandoned drafts", async () => {
       drafts.deleteAbandoned.mockResolvedValue([photo("old")]);
-      drafts.lock.mockResolvedValue([]);
+      drafts.list.mockResolvedValue([draft(["a"])]);
 
-      await service.replace(DRAFT_ID, [], [image], null);
+      await service.save(DRAFT_ID, ["a"], state);
 
       expect(storage.delete).toHaveBeenCalledWith("products/photo/label-old.jpg");
     });
-
-    it("deletes newly saved files when the insert fails", async () => {
-      drafts.lock.mockResolvedValue([]);
-      drafts.addPhoto.mockRejectedValue(new Error("db down"));
-
-      await expect(service.replace(DRAFT_ID, [], [image], null)).rejects.toThrow("db down");
-      expect(storage.delete).toHaveBeenCalledWith(storage.save.mock.calls[0]![1]);
-    });
   });
 
-  describe("read", () => {
-    it("reads the stored photos and remembers the result", async () => {
-      drafts.list.mockResolvedValue([draft()]);
-      readLabelPhotos.mockResolvedValue({ reading: {} as never, candidates: [], photoUploadIds: ["a"] });
+  describe("delete", () => {
+    it("removes the rows and then the files", async () => {
+      drafts.lock.mockResolvedValue([photo("a")]);
 
-      const result = await service.read(DRAFT_ID, ["a"]);
+      await service.delete(DRAFT_ID);
 
-      expect(readLabelPhotos).toHaveBeenCalledWith([image], ["a"]);
-      expect(result.kind).toBe("found");
-      expect(drafts.saveResult).toHaveBeenCalledWith(client, "a", result);
+      expect(drafts.deletePhotos).toHaveBeenCalledWith(client, DRAFT_ID, ["a"]);
+      expect(storage.delete).toHaveBeenCalledWith("products/photo/label-a.jpg");
     });
 
-    it("turns a failed lookup into a `failed` result", async () => {
-      drafts.list.mockResolvedValue([draft()]);
-      readLabelPhotos.mockRejectedValue(new PhotoLookupError(new Error("Claude down"), ["a"]));
-
-      const result = await service.read(DRAFT_ID, ["a"]);
-
-      expect(result).toMatchObject({ kind: "failed", reading: null, photoUploadIds: ["a"] });
-      expect(drafts.saveResult).toHaveBeenCalled();
-    });
-
-    it("rejects photos the panel has not seen", async () => {
-      drafts.list.mockResolvedValue([draft()]);
-
-      await expect(service.read(DRAFT_ID, ["b"])).rejects.toBeInstanceOf(LabelDraftConflictError);
-      expect(readLabelPhotos).not.toHaveBeenCalled();
+    it("throws 404 for a missing draft", async () => {
+      await expect(service.delete(DRAFT_ID)).rejects.toBeInstanceOf(LabelDraftNotFoundError);
+      expect(mockClient.query).toHaveBeenLastCalledWith("ROLLBACK");
     });
   });
 });

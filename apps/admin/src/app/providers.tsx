@@ -3,7 +3,7 @@
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { theme } from "@/lib/theme";
+import { cssVariablesResolver, theme } from "@/lib/theme";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -12,7 +12,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   // Na razie tylko jasny motyw; ciemny jest przygotowany w motywie i wróci z przełącznikiem w menu konta.
   return (
-    <MantineProvider theme={theme} forceColorScheme="light">
+    <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} forceColorScheme="light">
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   );

@@ -154,6 +154,28 @@ export class ProductController {
     res.status(200).json({ message: "Product unpublished", product });
   };
 
+  replacePrimaryPhoto = async (req: Request, res: Response) => {
+    const id = this.parseIdParam(req.params.id, res, "Invalid product id");
+
+    if (id === null) {
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ message: 'Send the photo in the "image" field' });
+      return;
+    }
+
+    const url = await this.productService.replacePrimaryPhoto(id, req.file.buffer, req.file.mimetype);
+
+    if (!url) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    res.status(200).json({ primaryPhotoUrl: url });
+  };
+
   deleteProduct = async (req: Request, res: Response) => {
     const id = this.parseIdParam(req.params.id, res, "Invalid product id");
 

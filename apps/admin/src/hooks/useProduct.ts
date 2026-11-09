@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addDiscogsCover,
   deleteMedia,
   deleteProduct,
   deleteVariant,
@@ -9,6 +10,8 @@ import {
   updateProduct,
   updateVariant,
   uploadVariantPhoto,
+  replaceProductPhoto,
+  setPrimaryMedia,
 } from "@/services/products.services";
 import type { UpdateProductInput, UpdateVariantInput } from "@/types/product";
 import { productKeys } from "./queryKeys";
@@ -28,6 +31,10 @@ function useProductMutation<TArgs, TResult>(mutationFn: (args: TArgs) => Promise
     mutationFn,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: productKeys.all }),
   });
+}
+
+export function useReplaceProductPhoto(productId: number) {
+  return useProductMutation((file: File) => replaceProductPhoto(productId, file));
 }
 
 export function useUpdateProduct(productId: number) {
@@ -71,6 +78,14 @@ export function useAddVariantPhotos() {
       }
     },
   );
+}
+
+export function useAddDiscogsCover(productId: number) {
+  return useProductMutation((variantId: number) => addDiscogsCover(productId, variantId));
+}
+
+export function useSetPrimaryMedia() {
+  return useProductMutation(setPrimaryMedia);
 }
 
 export function useDeleteMedia() {

@@ -4,7 +4,8 @@ import { AppShell, Group, Text } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
+import { trackPath } from "@/lib/backToList";
 import BottomNav from "./BottomNav";
 import Logo from "./Logo";
 import SideNav from "./SideNav";
@@ -20,6 +21,7 @@ type PanelShellProps = {
  */
 const PanelShell = ({ children }: PanelShellProps) => {
   const pathname = usePathname();
+  useEffect(() => trackPath(pathname), [pathname]);
   const isDesktop = useMediaQuery("(min-width: 48em)");
 
   return (

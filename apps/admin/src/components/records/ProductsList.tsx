@@ -1,19 +1,21 @@
 "use client";
 
-import { Button, Stack, TextInput } from "@mantine/core";
+import { Button, Stack, Text, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconChevronRight, IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import LoadingState from "@/components/ui/LoadingState";
 import PageTitle from "@/components/ui/PageTitle";
 import { useLabelDraftList, useProductList } from "@/hooks/useProducts";
-import { count, mediaSrc, lowestPrice, primaryPhoto, productArtist } from "@/lib/format";
+import { count, mediaSrc, primaryPhoto, productArtist } from "@/lib/format";
 import type { Product, ProductStatus } from "@/types/product";
+import { deleteLabelDraft } from "@/services/labelDrafts.services";
+import { deleteProduct } from "@/services/products.services";
+import DraftActions from "./DraftActions";
 import DraftBadges from "./DraftBadges";
 import ListRow from "./ListRow";
-import Price from "./Price";
 import RowList from "./RowList";
 
 type ProductsListProps = {
@@ -44,8 +46,12 @@ const ProductsList = ({ status }: ProductsListProps) => {
   const drafts = useLabelDraftList(isDraft);
   const labelDrafts = (isDraft ? (drafts.data ?? []) : [])
     .map((draft) => {
-      const reading = draft.result?.reading;
-      return { ...draft, artist: reading?.artists.join(", ") ?? "", title: reading?.title || "Płyta do rozpoznania" };
+      const details = draft.state?.details;
+      return {
+        ...draft,
+        artist: details?.artists ?? "",
+        title: details ? details.title || "Płyta bez tytułu" : "Płyta do rozpoznania",
+      };
     })
     .filter((draft) => `${draft.artist} ${draft.title}`.toLowerCase().includes(q.toLowerCase()));
   const total = list.total === undefined || (isDraft && !drafts.data) ? undefined : list.total + labelDrafts.length;
@@ -54,10 +60,26 @@ const ProductsList = ({ status }: ProductsListProps) => {
     <ListRow
       href={`/produkty/${product.id}`}
       thumb={primaryPhoto(product)}
+      variants={product.variants.length}
       title={productArtist(product) || product.title}
       subtitle={product.title}
       extra={isDraft ? <DraftBadges product={product} /> : undefined}
-      aside={isDraft ? <IconChevronRight size={28} aria-hidden="true" /> : <Price cents={lowestPrice(product)} />}
+      {...(isDraft && {
+        actions: (
+          <DraftActions
+            name={[productArtist(product), product.title].filter(Boolean).join(" – ")}
+            editHref={`/produkty/${product.id}`}
+            onDelete={() => deleteProduct(product.id)}
+          />
+        ),
+      })}
+      aside={
+        isDraft ? undefined : (
+          <Text fw={700} fz="xl" style={{ whiteSpace: "nowrap" }}>
+            {product.variants.reduce((sum, variant) => sum + variant.quantity, 0)} szt.
+          </Text>
+        )
+      }
     />
   );
 
@@ -91,6 +113,13 @@ const ProductsList = ({ status }: ProductsListProps) => {
               title={draft.artist || draft.title}
               subtitle={draft.artist ? draft.title : "Dokończ w kreatorze"}
               thumb={draft.photos[0] ? mediaSrc(draft.photos[0].path) : null}
+              actions={
+                <DraftActions
+                  name={[draft.artist, draft.title].filter(Boolean).join(" – ")}
+                  editHref={`/dodaj?szkic=${draft.id}`}
+                  onDelete={() => deleteLabelDraft(draft.id)}
+                />
+              }
             />
           )}
         />

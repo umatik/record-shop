@@ -82,59 +82,181 @@ const shopIds = async (query: Record<string, string>) => {
   return response.body.products.map((product: { id: number }) => product.id);
 };
 
-describe("Wizard photo drafts", () => {
-  it("adds the scanned copy to the selected product and consumes its label only once", async () => {
-    const { productId, variantId } = await createDraft();
-    const url = "/products/lookup/drafts/c192ab28-aa58-48e9-b0c9-b7c7780b25c0";
-    const draft = await asAdmin(request(app).put(url)).attach("images", photo).expect(200);
-    const label = draft.body.photos[0];
-    const input = { priceEur: 7700, attributes: vinylVariant, photoUploadIds: [label.id] };
+/** Zdjęcie labelu po odczycie: w testach integracje są wyłączone, ale zdjęcie i tak zostaje zapisane. */
+const pendingLabelPhoto = async (): Promise<string> => {
+  const response = await asAdmin(request(app).post("/products/lookup/photo")).attach("images", photo);
+  expect(response.body.photoUploadIds).toHaveLength(1);
+  return response.body.photoUploadIds[0];
+};
+
+const draftUrl = (id: string) => `/products/lookup/drafts/${id}`;
+const wizardState = { details: { artists: "Fussey Brown", title: "News Carrier" } };
+
+describe("Wizard drafts", () => {
+  it("keeps a read label only as a pending photo until the wizard saves a draft", async () => {
+    const id = await pendingLabelPhoto();
+
+    expect((await asAdmin(request(app).get("/products/lookup/drafts"))).body.drafts).toEqual([]);
+
+    const url = draftUrl("994a88f2-6e66-4f64-b9e9-ff7b183cc851");
+    const saved = await asAdmin(request(app).put(url))
+      .send({ photoUploadIds: [id], state: wizardState })
+      .expect(200);
+
+    expect(saved.body).toMatchObject({ photos: [{ id }], state: wizardState });
+    expect((await asAdmin(request(app).get("/products/lookup/drafts"))).body.drafts).toHaveLength(1);
+  });
+
+  it("survives the pending-photo expiry and is claimed once when the record is saved", async () => {
+    const id = await pendingLabelPhoto();
+    const url = draftUrl("994a88f2-6e66-4f64-b9e9-ff7b183cc851");
+    const saved = await asAdmin(request(app).put(url)).send({ photoUploadIds: [id], state: wizardState });
+    const photoPath = saved.body.photos[0].path;
+    await pool.query("UPDATE pending_uploads SET created_at = NOW() - INTERVAL '2 days' WHERE id = $1", [id]);
+
+    // Kolejny odczyt labelu sprząta wygasłe zdjęcia spoza szkiców.
+    await pendingLabelPhoto();
+    expect(await fileExists(photoPath)).toBe(true);
+    await asAdmin(request(app).put(url)).send({ photoUploadIds: [id], state: wizardState }).expect(200);
+
+    const input = { type: "vinyl", title: "Durable draft", attributes: { artists: ["Artist"] },
+      variants: [{ priceEur: 100, attributes: vinylVariant, photoUploadIds: [id] }] };
+    const completed = await asAdmin(request(app).post("/products")).send(input).expect(201);
+
+    expect(completed.body.product.variants[0].media[0]).toMatchObject({ url: photoPath, isPrimary: true });
+    await asAdmin(request(app).get(url)).expect(404);
+    await asAdmin(request(app).post("/products")).send(input).expect(400);
+  });
+
+  it("adds the scanned copy as a variant of an existing product", async () => {
+    const { productId } = await createDraft();
+    const id = await pendingLabelPhoto();
+    const url = draftUrl("c192ab28-aa58-48e9-b0c9-b7c7780b25c0");
+    await asAdmin(request(app).put(url)).send({ photoUploadIds: [id], state: wizardState }).expect(200);
+
+    const input = { priceEur: 7700, attributes: vinylVariant, photoUploadIds: [id] };
     const endpoint = `/products/${productId}/variants`;
-    const added = await asAdmin(request(app).post(endpoint)).send(input).expect(201);
-    expect(added.body.variant.media[0]).toMatchObject({ url: label.path, isPrimary: true });
+    await asAdmin(request(app).post(endpoint)).send(input).expect(201);
+
     await asAdmin(request(app).post(endpoint)).send(input).expect(400);
-    const { body } = await asAdmin(request(app).get(`/products/manage/${productId}`)).expect(200);
-    expect(body.product.isPublished).toBe(false);
-    expect(body.product.variants.map((v: { id: number }) => v.id).sort()).toEqual([variantId, added.body.variant.id].sort());
     await asAdmin(request(app).get(url)).expect(404);
   });
 
-  it("resumes an uploaded label after a day and claims it once when the record is saved", async () => {
-    const url = "/products/lookup/drafts/994a88f2-6e66-4f64-b9e9-ff7b183cc851";
-    const saved = await asAdmin(request(app).put(url)).attach("images", photo);
-    expect(saved.status).toBe(200);
-    const [{ id, path: photoPath }] = saved.body.photos;
-    expect((await asAdmin(request(app).get("/products/lookup/drafts"))).body.drafts).toHaveLength(1);
-    expect((await asAdmin(request(app).put(url)).attach("images", photo)).status).toBe(409);
+  it("swaps photos after a new lookup and deletes the old file", async () => {
+    const first = await pendingLabelPhoto();
+    const url = draftUrl("c192ab28-aa58-48e9-b0c9-b7c7780b25c0");
+    const saved = await asAdmin(request(app).put(url)).send({ photoUploadIds: [first], state: wizardState });
+    const second = await pendingLabelPhoto();
+
+    const swapped = await asAdmin(request(app).put(url))
+      .send({ photoUploadIds: [second], state: wizardState })
+      .expect(200);
+
+    expect(swapped.body.photos.map((p: { id: string }) => p.id)).toEqual([second]);
+    expect(await fileExists(saved.body.photos[0].path)).toBe(false);
+  });
+
+  it("deletes a draft together with its photo files", async () => {
+    const url = draftUrl("c192ab28-aa58-48e9-b0c9-b7c7780b25c0");
+    const saved = await asAdmin(request(app).put(url))
+      .send({ photoUploadIds: [await pendingLabelPhoto()], state: wizardState })
+      .expect(200);
+
+    await asAdmin(request(app).delete(url)).expect(204);
+
+    await asAdmin(request(app).get(url)).expect(404);
+    expect(await fileExists(saved.body.photos[0].path)).toBe(false);
+    await asAdmin(request(app).delete(url)).expect(404);
+  });
+
+  it("rejects photos that expired before the draft was saved", async () => {
+    const id = await pendingLabelPhoto();
     await pool.query("UPDATE pending_uploads SET created_at = NOW() - INTERVAL '2 days' WHERE id = $1", [id]);
-    // The legacy photo lookup also runs cleanup.
-    await asAdmin(request(app).post("/products/lookup/photo")).attach("images", photo);
-    expect(await fileExists(photoPath)).toBe(true);
-    const read = await asAdmin(request(app).post(url + "/read")).send({ previous: id });
-    expect(read.status).toBe(200);
-    expect(read.body.photoUploadIds).toEqual([id]);
-    expect((await asAdmin(request(app).get(url))).body.result).toEqual(read.body);
-    const input = { type: "vinyl", title: "Durable draft", attributes: { artists: ["Artist"] },
-      variants: [{ priceEur: 100, attributes: vinylVariant, photoUploadIds: [id] }] };
-    const completed = await asAdmin(request(app).post("/products")).send(input);
-    expect(completed.status).toBe(201);
-    expect(completed.body.product.variants[0].media[0]).toMatchObject({ url: photoPath, isPrimary: true });
-    expect((await asAdmin(request(app).get(url))).status).toBe(404);
-    expect((await asAdmin(request(app).post("/products")).send(input)).status).toBe(400);
+
+    const response = await asAdmin(request(app).put(draftUrl("c192ab28-aa58-48e9-b0c9-b7c7780b25c0")))
+      .send({ photoUploadIds: [id], state: wizardState });
+
+    expect(response.status).toBe(400);
   });
 
   it("removes a draft abandoned for over 30 days when another draft is saved", async () => {
-    const old = "/products/lookup/drafts/5b0c8f53-3f0c-4b47-9a59-2f3f0f1f6c11";
-    const saved = await asAdmin(request(app).put(old)).attach("images", photo).expect(200);
-    const [{ id, path: photoPath }] = saved.body.photos;
-    await pool.query("UPDATE pending_uploads SET created_at = NOW() - INTERVAL '31 days' WHERE id = $1", [id]);
+    const old = draftUrl("5b0c8f53-3f0c-4b47-9a59-2f3f0f1f6c11");
+    const saved = await asAdmin(request(app).put(old))
+      .send({ photoUploadIds: [await pendingLabelPhoto()], state: wizardState })
+      .expect(200);
+    await pool.query(
+      "UPDATE pending_uploads SET draft_saved_at = NOW() - INTERVAL '31 days' WHERE id = $1",
+      [saved.body.photos[0].id],
+    );
 
-    await asAdmin(request(app).put("/products/lookup/drafts/7d7e2b0a-4a51-4d0e-8f3e-0c1b5a9e2d22"))
-      .attach("images", photo)
+    await asAdmin(request(app).put(draftUrl("7d7e2b0a-4a51-4d0e-8f3e-0c1b5a9e2d22")))
+      .send({ photoUploadIds: [await pendingLabelPhoto()], state: wizardState })
       .expect(200);
 
     await asAdmin(request(app).get(old)).expect(404);
-    expect(await fileExists(photoPath)).toBe(false);
+    expect(await fileExists(saved.body.photos[0].path)).toBe(false);
+  });
+});
+
+describe("Product main photo", () => {
+  const recordInput = (photoUploadIds: string[]) => ({
+    type: "vinyl",
+    title: "Main Photo Dub",
+    attributes: { artists: ["Artist"] },
+    variants: [{ priceEur: 100, attributes: vinylVariant, photoUploadIds }],
+  });
+
+  it("copies the first label photo as the main photo of a new product", async () => {
+    const id = await pendingLabelPhoto();
+    const created = await asAdmin(request(app).post("/products")).send(recordInput([id])).expect(201);
+    const { primaryPhotoUrl, variants } = created.body.product;
+
+    expect(primaryPhotoUrl).toMatch(/^products\/\d+\/main-/);
+    expect(primaryPhotoUrl).not.toBe(variants[0].media[0].url);
+    expect(await fileExists(primaryPhotoUrl)).toBe(true);
+
+    const managed = await asAdmin(request(app).get(`/products/manage/${created.body.product.id}`)).expect(200);
+    expect(managed.body.product.primaryPhotoUrl).toBe(primaryPhotoUrl);
+  });
+
+  it("keeps the main photo when another variant is added", async () => {
+    const created = await asAdmin(request(app).post("/products"))
+      .send(recordInput([await pendingLabelPhoto()]))
+      .expect(201);
+    const { id: productId, primaryPhotoUrl } = created.body.product;
+
+    await asAdmin(request(app).post(`/products/${productId}/variants`))
+      .send({ priceEur: 200, attributes: vinylVariant, photoUploadIds: [await pendingLabelPhoto()] })
+      .expect(201);
+
+    const { body } = await asAdmin(request(app).get(`/products/manage/${productId}`)).expect(200);
+    expect(body.product.primaryPhotoUrl).toBe(primaryPhotoUrl);
+  });
+
+  it("replaces the main photo and deletes the old file", async () => {
+    const created = await asAdmin(request(app).post("/products"))
+      .send(recordInput([await pendingLabelPhoto()]))
+      .expect(201);
+    const { id: productId, primaryPhotoUrl: old } = created.body.product;
+
+    const replaced = await asAdmin(request(app).put(`/products/${productId}/photo`))
+      .attach("image", photo)
+      .expect(200);
+
+    expect(replaced.body.primaryPhotoUrl).not.toBe(old);
+    expect(await fileExists(replaced.body.primaryPhotoUrl)).toBe(true);
+    expect(await fileExists(old)).toBe(false);
+    await asAdmin(request(app).put("/products/999999/photo")).attach("image", photo).expect(404);
+  });
+
+  it("deletes the main photo file together with a draft product", async () => {
+    const created = await asAdmin(request(app).post("/products"))
+      .send(recordInput([await pendingLabelPhoto()]))
+      .expect(201);
+
+    await asAdmin(request(app).delete(`/products/${created.body.product.id}`)).expect(204);
+
+    expect(await fileExists(created.body.product.primaryPhotoUrl)).toBe(false);
   });
 });
 

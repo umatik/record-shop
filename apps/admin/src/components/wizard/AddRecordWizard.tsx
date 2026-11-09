@@ -3,10 +3,10 @@
 import { Alert, Loader, Stack, Text } from "@mantine/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { productKeys } from "@/hooks/queryKeys";
-import { readLabelDraft, saveLabelDraft, type LabelDraft } from "@/services/labelDrafts.services";
+import { saveLabelDraft, type LabelDraft, type WizardDraftState } from "@/services/labelDrafts.services";
 import { useRef, useState } from "react";
 import ErrorState from "@/components/ui/ErrorState";
-import { useReleaseDraft, useReleaseSearch } from "@/hooks/useLookup";
+import { useLabelLookup, useReleaseDraft, useReleaseSearch } from "@/hooks/useLookup";
 import type {
   LabelLookupResult,
   LabelReading,
@@ -24,7 +24,7 @@ import PickStep from "./PickStep";
 import SummaryStep from "./SummaryStep";
 import WizardHeader from "./WizardHeader";
 
-/** Kolejność ustalona w notatkach panelu: zdjęcie → wydanie → dane → stan i cena → zdjęcia → podsumowanie. */
+/** Kolejność ustalona w notatkach panelu: zdjęcie → wydanie → płyta → wariant (tłoczenie, stan, cena) → zdjęcia → podsumowanie. */
 type Step = "photo" | "pick" | "details" | "condition" | "photos" | "summary";
 const STEP_NUMBER: Record<Step, number> = { photo: 1, pick: 2, details: 3, condition: 4, photos: 5, summary: 6 };
 const STEP_COUNT = 6;
@@ -34,89 +34,68 @@ const STEP_COUNT = 6;
  * więc „Wstecz” niczego nie kasuje, a „Dalej” w nagłówku wraca do kroków, które już były wypełnione.
  */
 const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft: LabelDraft; files: File[] } }) => {
-  const initialResult = initial?.draft.result;
-  const initialStep = initialResult?.kind === "found" ? "pick" : "details";
+  // Szkic bez danych płyty (zapisany przed odczytem) wraca na krok ze zdjęciem.
+  const resumed = initial?.draft.state?.details ? initial.draft.state : null;
   const client = useQueryClient();
+  // Szkic powstaje dopiero przy kroku „Sprawdź dane”; wcześniej zdjęcia z odczytu same wygasają w API.
   const draftId = useRef(initial?.draft.id);
-  const saving = useRef(false);
   // Odwiedzone kroki i pozycja w nich, jak historia w przeglądarce.
-  const [path, setPath] = useState<Step[]>(initialResult ? ["photo", initialStep] : ["photo"]);
-  const [index, setIndex] = useState(initialResult ? 1 : 0);
+  const resumedPath: Step[] = resumed?.candidates.length ? ["photo", "pick", "details"] : ["photo", "details"];
+  const [path, setPath] = useState<Step[]>(resumed ? resumedPath : ["photo"]);
+  const [index, setIndex] = useState(resumed ? resumedPath.length - 1 : 0);
   const step = path[index] ?? "photo";
 
   // Krok 1: zdjęcia labelu jako pliki (podgląd) i jako identyfikatory w API (pierwsze stanie się zdjęciem głównym).
   const [labelPhotos, setLabelPhotos] = useState<File[]>(initial?.files ?? []);
   const [photoUploadIds, setPhotoUploadIds] = useState<string[]>(initial?.draft.photos.map((photo) => photo.id) ?? []);
   // Zdjęcia zmienione po ostatnim odczycie: trzeba je odczytać ponownie, zanim pójdziemy dalej.
-  const [lookedUpPhotos, setLookedUpPhotos] = useState<File[]>(initialResult ? initial!.files : []);
+  const [lookedUpPhotos, setLookedUpPhotos] = useState<File[]>(resumed ? (initial?.files ?? []) : []);
   // Krok 2.
-  const [reading, setReading] = useState<LabelReading | null>(initialResult?.reading ?? null);
-  const [candidates, setCandidates] = useState<ReleaseCandidate[]>(
-    initialResult?.kind === "found" ? initialResult.candidates : [],
-  );
+  const [reading, setReading] = useState<LabelReading | null>(resumed?.reading ?? null);
+  const [candidates, setCandidates] = useState<ReleaseCandidate[]>(resumed?.candidates ?? []);
   const releaseSearch = useReleaseSearch();
   const releaseDraft = useReleaseDraft();
+  const reread = useLabelLookup();
   const loadingRelease = releaseDraft.isPending;
   // Krok 3.
-  const [details, setDetails] = useState<RecordDetails | null>(
-    initialResult?.kind === "failed" ? detailsFromReading(initialResult.reading) : null,
-  );
-  const [fromLabel, setFromLabel] = useState<FromLabel>({});
-  const [existingProducts, setExistingProducts] = useState<ProductMatch[]>([]);
+  const [details, setDetails] = useState<RecordDetails | null>(resumed?.details ?? null);
+  const [fromLabel, setFromLabel] = useState<FromLabel>(resumed?.fromLabel ?? {});
+  const [existingProducts, setExistingProducts] = useState<ProductMatch[]>(resumed?.existingProducts ?? []);
   const [destination, setDestination] = useState<number | "new" | null>(null);
   const vinylMatches = existingProducts.filter((match) => match.type === "vinyl");
   const exactMatches = vinylMatches.filter((match) => match.matchedBy.includes("discogs_release"));
   const choices = exactMatches.length ? exactMatches : vinylMatches;
   const selectedDestination = destination ?? choices[0]?.productId ?? "new";
   const target = choices.find((match) => match.productId === selectedDestination) ?? null;
-  const [notice, setNotice] = useState<string | null>(initialResult?.kind === "failed" ? initialResult.message : null);
+  const [notice, setNotice] = useState<string | null>(resumed?.notice ?? null);
   // Kroki 4 i 5.
   const [condition, setCondition] = useState<ConditionForm>(emptyConditionForm);
   const [extraPhotos, setExtraPhotos] = useState<File[]>([]);
 
   const [saved, setSaved] = useState(false);
 
-  const savePhotos = useMutation({
-    mutationFn: async (photos: File[]) => {
+  const saveDraft = useMutation({
+    mutationFn: ({ ids, state }: { ids: string[]; state: WizardDraftState }) => {
       const id = draftId.current ?? crypto.randomUUID?.() ?? newId;
       draftId.current = id;
-      return saveLabelDraft(id, photos, photoUploadIds);
+      return saveLabelDraft(id, ids, state);
     },
-    onSuccess: (draft, photos) => {
-      setLabelPhotos(photos);
-      setPhotoUploadIds(draft.photos.map((photo) => photo.id));
-      setPath(["photo"]);
-      setIndex(0);
-      // Nowe zdjęcia to (zwykle) inna płyta: wszystko z poprzedniego odczytu trzeba zebrać od nowa.
-      setReading(null);
-      setLookedUpPhotos([]);
-      setCandidates([]);
-      setDetails(null);
-      setFromLabel({});
-      setExistingProducts([]);
-      setDestination(null);
-      setNotice(null);
+    onSuccess: (draft) => {
       const url = new URL(window.location.href);
-      if (photos.length) url.searchParams.set("szkic", draft.id);
-      else {
-        url.searchParams.delete("szkic");
-        draftId.current = undefined;
-      }
+      url.searchParams.set("szkic", draft.id);
       window.history.replaceState(null, "", url);
       void client.invalidateQueries({ queryKey: productKeys.all });
     },
-    onSettled: () => {
-      saving.current = false;
-    },
   });
 
-  const lookup = useMutation({
-    mutationFn: () => readLabelDraft(draftId.current!, photoUploadIds),
-    onSuccess: (result) => {
-      onRead(result, labelPhotos);
-      void client.invalidateQueries({ queryKey: productKeys.all });
-    },
-  });
+  /**
+   * Zapis szkicu przy wejściu na krok „Sprawdź dane” i przy wyjściu z niego dalej. Nie blokuje kreatora:
+   * błąd zapisu widać nad krokiem, a płytę i tak da się zapisać.
+   */
+  function persist(changes: Partial<WizardDraftState> & { details: RecordDetails }, ids = photoUploadIds) {
+    if (ids.length === 0) return;
+    saveDraft.mutate({ ids, state: { reading, candidates, fromLabel, existingProducts, notice, ...changes } });
+  }
 
   const variant = toVariant(condition);
   const photosChanged =
@@ -145,15 +124,9 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
     show(index + 1);
   };
 
-  const canGoBack = index > 0 && !saved && !loadingRelease && !savePhotos.isPending && !lookup.isPending;
+  const canGoBack = index > 0 && !saved && !loadingRelease;
   const nextInPath = path[index + 1];
-  const canGoForward =
-    nextInPath !== undefined &&
-    ready[nextInPath] &&
-    !saved &&
-    !loadingRelease &&
-    !savePhotos.isPending &&
-    !lookup.isPending;
+  const canGoForward = nextInPath !== undefined && ready[nextInPath] && !saved && !loadingRelease;
 
   function reset() {
     // Pełne otwarcie kreatora nadaje kolejnej płycie osobny identyfikator.
@@ -172,15 +145,46 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
       go("pick");
     } else {
       // Claude albo Discogs zawiodły: wpisanie ręczne z tym, co udało się odczytać.
+      const manual = detailsFromReading(result.reading);
+      const message = `${result.message} Wpisz dane ręcznie, zdjęcie zostanie dołączone do płyty.`;
       setPhotoUploadIds(result.photoUploadIds);
       setCandidates([]);
-      setDetails(detailsFromReading(result.reading));
+      setDetails(manual);
       setFromLabel({});
       setExistingProducts([]);
-      setNotice(`${result.message} Wpisz dane ręcznie, zdjęcie zostanie dołączone do płyty.`);
+      setNotice(message);
       setPath(["photo", "details"]);
       show(1);
+      persist(
+        {
+          reading: result.reading,
+          candidates: [],
+          details: manual,
+          fromLabel: {},
+          existingProducts: [],
+          notice: message,
+        },
+        result.photoUploadIds,
+      );
     }
+  }
+
+  /** Ponowny odczyt labelu na kroku wyboru: zostajemy na tym kroku z nowym odczytem i kandydatami. */
+  function onReread() {
+    reread.mutate(labelPhotos, {
+      onSuccess: (result) => {
+        if (result.kind === "failed") {
+          onRead(result, labelPhotos);
+          return;
+        }
+        setLookedUpPhotos(labelPhotos);
+        setReading(result.reading);
+        setPhotoUploadIds(result.photoUploadIds);
+        setCandidates(result.candidates);
+        setDetails(null);
+        setNotice(null);
+      },
+    });
   }
 
   /** Wyszukanie po poprawionym odczycie: tylko Discogs. Poprawki zostają w odczycie, więc trafią też do kroku 3. */
@@ -216,18 +220,21 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
         setExistingProducts(result.existingProducts);
         setDestination(null);
         go("details");
+        persist({ ...merged, existingProducts: result.existingProducts });
       },
     });
   }
 
   function onManual() {
-    setDetails(detailsFromReading(reading));
+    const manual = detailsFromReading(reading);
+    setDetails(manual);
     setFromLabel({});
     setExistingProducts([]);
     go("details");
+    persist({ details: manual, fromLabel: {}, existingProducts: [] });
   }
 
-  const error = savePhotos.error ?? lookup.error ?? releaseSearch.error ?? releaseDraft.error;
+  const error = reread.error ?? releaseSearch.error ?? releaseDraft.error;
 
   return (
     <Stack gap="lg" maw={640} mx="auto">
@@ -240,22 +247,18 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
 
       {error && <ErrorState message={error.message} />}
 
-      {step === "photo" && (
-        <PhotoStep
-          photos={labelPhotos}
-          saving={savePhotos.isPending}
-          reading={lookup.isPending}
-          onPhotosChange={(photos) => {
-            if (saving.current || lookup.isPending) return;
-            saving.current = true;
-            savePhotos.mutate(photos);
-          }}
-          onRead={() => lookup.mutate()}
-        />
-      )}
+      {step === "photo" && <PhotoStep photos={labelPhotos} onPhotosChange={setLabelPhotos} onRead={onRead} />}
 
       {step === "pick" && reading && !loadingRelease && (
-        <PickStep reading={reading} candidates={candidates} onPick={onPick} onManual={onManual} onSearch={onSearch} />
+        <PickStep
+          reading={reading}
+          candidates={candidates}
+          onPick={onPick}
+          onManual={onManual}
+          onSearch={onSearch}
+          onReread={onReread}
+          rereading={reread.isPending}
+        />
       )}
 
       {loadingRelease && (
@@ -280,16 +283,27 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
             target={target}
             destination={selectedDestination}
             onDestination={setDestination}
-            onNext={() => go("condition")}
+            onNext={() => {
+              go("condition");
+              persist({ details });
+            }}
           />
+          {saveDraft.isError && <ErrorState message={`Nie udało się zapisać szkicu: ${saveDraft.error.message}`} />}
         </>
       )}
 
-      {step === "condition" && (
+      {step === "condition" && details && (
         <ConditionStep
+          details={details}
+          onDetailsChange={(patch) => setDetails((current) => (current ? { ...current, ...patch } : current))}
+          fromLabel={fromLabel}
           form={condition}
           onChange={(patch) => setCondition((current) => ({ ...current, ...patch }))}
-          onNext={() => go("photos")}
+          onNext={() => {
+            go("photos");
+            // Tłoczenie poprawiane w kroku wariantu też trafia do szkicu.
+            persist({ details });
+          }}
         />
       )}
 

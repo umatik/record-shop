@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { LastPublishedVariantError } from "@/errors/last-published-variant.error.js";
 import type {
   CreateProductData,
@@ -20,6 +21,7 @@ import type { Database } from "@/database/database.interface.js";
 import type { ProductRepository } from "@/repositories/products/product/product.interface.js";
 import type { ProductVariantRepository } from "@/repositories/products/product-variant/product-variant.interface.js";
 import type { Storage } from "@/storage/storage.interface.js";
+import { UnsupportedMediaTypeError } from "@/errors/unsupported-media-type.js";
 import {
   PENDING_UPLOAD_TTL_MS,
   type PendingUploadRepository,
@@ -48,6 +50,24 @@ const MATCH_LIMIT = 10;
 
 /** Kod błędu PostgreSQL: naruszenie klucza obcego. */
 const FOREIGN_KEY_VIOLATION = "23503";
+
+/** Główne zdjęcie produktu: te same formaty co zdjęcia labelu. */
+const PRIMARY_PHOTO_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+/**
+ * Tytuł do porównania: tylko część przed „/” (strona A), małe litery, bez spacji i znaków.
+ * „Moulding / Africa” i „Moulding” dają to samo. Tak samo liczy to zapytanie w repozytorium.
+ */
+export const normalizeTitle = (title: string) =>
+  (title.split("/")[0] ?? "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/** Artysta do porównania: bez numeru z Discogs („(2)”), gwiazdki i spacji („I Jahman*” = „Ijahman”). */
+export const normalizeArtist = (artist: string) =>
+  artist.replace(/\s*\(\d+\)$/, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
 export class ProductService {
   constructor(
@@ -106,9 +126,55 @@ export class ProductService {
       throw new Error("Product was not created");
     }
 
+    // Pierwsze zdjęcie labelu staje się głównym zdjęciem produktu (osobna kopia pliku, żeby usunięcie
+    // zdjęcia wariantu go nie ruszało).
+    const labelPhoto = product.variants[0]?.media[0]?.url;
+
+    if (labelPhoto) {
+      product.primaryPhotoUrl = await this.copyAsPrimaryPhoto(product.id, labelPhoto);
+    }
+
     await this.cache.clear();
 
     return this.withPln(product);
+  }
+
+  /**
+   * Zastępuje główne zdjęcie produktu wgranym plikiem; stary plik jest usuwany po zapisie.
+   * Zwraca `null`, gdy produktu nie ma.
+   */
+  async replacePrimaryPhoto(
+    id: number,
+    file: Buffer,
+    contentType: string,
+  ): Promise<string | null> {
+    const extension = PRIMARY_PHOTO_EXTENSIONS[contentType];
+
+    if (!extension) {
+      throw new UnsupportedMediaTypeError();
+    }
+
+    const url = await this.storage.save(
+      file,
+      `products/${id}/main-${randomUUID()}.${extension}`,
+      contentType,
+    );
+    const previous = await this.withClient((client) =>
+      this.productRepository.setPrimaryPhoto(client, id, url),
+    );
+
+    if (previous === undefined) {
+      await this.deleteFiles([url]);
+      return null;
+    }
+
+    if (previous) {
+      await this.deleteFiles([previous]);
+    }
+
+    await this.cache.clear();
+
+    return url;
   }
 
   async updateProduct(
@@ -357,13 +423,21 @@ export class ProductService {
       catalogNumber:
         criteria.catalogNumber?.toLowerCase().replace(/[^a-z0-9]/g, "") || null,
       label: criteria.label?.trim().toLowerCase() || null,
-      title: criteria.title?.trim().toLowerCase() || null,
+      title: criteria.title ? normalizeTitle(criteria.title) || null : null,
       artists: criteria.artists?.length
-        ? criteria.artists.map((artist) => artist.trim().toLowerCase())
+        ? criteria.artists.map(normalizeArtist).filter(Boolean)
         : null,
+      discogsMasterId:
+        criteria.discogsMasterId === undefined ? null : String(criteria.discogsMasterId),
+      discogsArtistIds: criteria.discogsArtistIds?.length ? criteria.discogsArtistIds : null,
     };
 
-    if (!normalized.discogsReleaseId && !normalized.catalogNumber && !normalized.title) {
+    if (
+      !normalized.discogsReleaseId &&
+      !normalized.catalogNumber &&
+      !normalized.title &&
+      !normalized.discogsMasterId
+    ) {
       return [];
     }
 
@@ -413,9 +487,27 @@ export class ProductService {
       return null;
     }
 
+    // Płyta bez głównego zdjęcia (np. dodana przed tą funkcją) dostaje zdjęcie labelu nowego wariantu.
+    // Istniejącego głównego zdjęcia nowy wariant nie zmienia.
+    const labelPhoto = variant.media[0]?.url;
+    const product = labelPhoto ? await this.withClient((client) => this.productRepository.findById(productId, client)) : null;
+
+    if (labelPhoto && product && !product.primaryPhotoUrl) {
+      await this.copyAsPrimaryPhoto(productId, labelPhoto);
+    }
+
     await this.cache.clear();
 
     return this.variantWithPln(variant);
+  }
+
+  /** Wariant produktu z mediami; `null`, gdy nie ma go albo należy do innego produktu. */
+  async findVariant(productId: number, variantId: number): Promise<ProductVariant | null> {
+    const variant = await this.withClient((client) =>
+      this.productVariantRepository.findById(client, variantId),
+    );
+
+    return variant && !variant.isDeleted && variant.productId === productId ? variant : null;
   }
 
   async updateVariant(
@@ -639,6 +731,20 @@ export class ProductService {
     }
 
     return variant;
+  }
+
+  /** Kopiuje zdjęcie jako główne zdjęcie produktu. Błąd kopiowania nie psuje zapisu płyty: zostaje bez zdjęcia. */
+  private async copyAsPrimaryPhoto(productId: number, source: string): Promise<string | null> {
+    const extension = source.split(".").pop() ?? "jpg";
+
+    try {
+      const url = await this.storage.copy(source, `products/${productId}/main-${randomUUID()}.${extension}`);
+      await this.withClient((client) => this.productRepository.setPrimaryPhoto(client, productId, url));
+      return url;
+    } catch (error) {
+      console.error(`Failed to set the primary photo of product ${productId}:`, error);
+      return null;
+    }
   }
 
   private async deleteFiles(urls: string[]): Promise<void> {

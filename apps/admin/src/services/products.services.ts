@@ -1,5 +1,6 @@
 import type {
   CreateProductInput,
+  Media,
   Product,
   ProductDetail,
   ProductList,
@@ -36,6 +37,17 @@ export function uploadVariantPhoto(variantId: number, file: File, sortOrder: num
   return request(`/products/variants/${variantId}/media`, { method: "POST", form });
 }
 
+/** Okładka wydania z Discogs (po `discogsReleaseId` wariantu) jako kolejne zdjęcie wariantu. */
+export function addDiscogsCover(productId: number, variantId: number) {
+  return request(`/products/${productId}/variants/${variantId}/discogs-cover`, { method: "POST" });
+}
+
+export function replaceProductPhoto(productId: number, file: File) {
+  const form = new FormData();
+  form.append("image", file);
+  return request<{ primaryPhotoUrl: string }>(`/products/${productId}/photo`, { method: "PUT", form });
+}
+
 export function getProduct(productId: number) {
   return request<ProductDetail>(`/products/manage/${productId}`);
 }
@@ -67,6 +79,14 @@ export function updateVariant(productId: number, variantId: number, input: Updat
 /** Ostatniego wariantu opublikowanego produktu API nie usunie (409): wtedy usuwa się cały produkt. */
 export async function deleteVariant(productId: number, variantId: number) {
   await request(`/products/${productId}/variants/${variantId}`, { method: "DELETE" });
+}
+
+/** Ustawia zdjęcie jako główne wariantu (API zdejmuje flagę z poprzedniego). */
+export function setPrimaryMedia(media: Media) {
+  return request(`/products/media/${media.id}`, {
+    method: "PATCH",
+    json: { alt: media.alt, sortOrder: media.sortOrder, isPrimary: true },
+  });
 }
 
 export async function deleteMedia(mediaId: number) {

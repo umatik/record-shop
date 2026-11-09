@@ -1,6 +1,6 @@
 "use client";
 
-import { ActionIcon, Button, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { ActionIcon, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import ErrorState from "@/components/ui/ErrorState";
@@ -17,7 +17,8 @@ const isUrl = (value: string) => /^https?:\/\/\S+\.\S+/.test(value);
 /** Linki do odsłuchu (YouTube, Bandcamp). Bez żadnego płyta dostaje ostrzeżenie `missing_preview`. */
 const PreviewLinksEditor = ({ product }: PreviewLinksEditorProps) => {
   const update = useUpdateProduct(product.id);
-  const links = (product.attributes.previewLinks ?? []) as string[];
+  // Bez powtórzeń: starsze płyty mogą mieć ten sam link z Discogs dwa razy.
+  const links = [...new Set((product.attributes.previewLinks ?? []) as string[])];
   const [draft, setDraft] = useState("");
 
   const save = (previewLinks: string[], onSuccess?: () => void) =>
@@ -29,11 +30,7 @@ const PreviewLinksEditor = ({ product }: PreviewLinksEditorProps) => {
   };
 
   return (
-    <Stack component="section" aria-labelledby="preview-title" gap="sm">
-      <Title id="preview-title" order={2}>
-        Odsłuch
-      </Title>
-
+    <Stack gap="sm">
       {links.length === 0 ? (
         <Text c="dimmed" fz="lg">
           Brak linków do odsłuchu.

@@ -1,33 +1,27 @@
-import { randomUUID } from "node:crypto";
 import type { Database } from "@/database/database.interface.js";
 import type { Storage } from "@/storage/storage.interface.js";
-import type { LabelImage } from "@/integrations/claude/label-reader.js";
-import { PhotoLookupError } from "@/errors/external-service.error.js";
-import { LabelDraftConflictError, LabelDraftNotFoundError } from "@/errors/label-draft.error.js";
+import {
+  LabelDraftNotFoundError,
+  LabelDraftPhotosUnavailableError,
+} from "@/errors/label-draft.error.js";
 import {
   LABEL_DRAFT_TTL_MS,
   type LabelDraft,
   type LabelDraftPhoto,
   type LabelDraftRepository,
 } from "@/repositories/label-draft/label-draft.interface.js";
-import type { RecordLookupService } from "@/services/record-lookup.service.js";
-
-const EXTENSION_BY_MEDIA_TYPE: Record<LabelImage["mediaType"], string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
+import { PENDING_UPLOAD_TTL_MS } from "@/repositories/pending-upload/pending-upload.interface.js";
 
 /**
- * Trwałe szkice kreatora: zdjęcia labelu zapisane od razu po zrobieniu, z ostatnim wynikiem odczytu,
- * żeby można było wrócić do płyty później. Zdjęcia zabiera zapis płyty w tej samej transakcji, która ją tworzy.
+ * Trwałe szkice kreatora. Zdjęcia z odczytu labelu są oczekujące i same wygasają; dopiero gdy kreator
+ * dojdzie do danych płyty, zapis szkicu zabiera je razem ze stanem kreatora, żeby można było wrócić później.
+ * Zdjęcia szkicu zabiera zapis płyty w tej samej transakcji, która ją tworzy.
  */
 export class LabelDraftService {
   constructor(
     private readonly drafts: LabelDraftRepository,
     private readonly storage: Storage,
     private readonly pool: Database,
-    private readonly recordLookup: Pick<RecordLookupService, "readLabelPhotos">,
   ) {}
 
   async list(): Promise<LabelDraft[]> {
@@ -57,13 +51,13 @@ export class LabelDraftService {
   }
 
   /**
-   * Zastępuje zdjęcia szkicu nowymi; pusta lista usuwa szkic. `previous` to identyfikatory zdjęć,
-   * które widział panel: inne oznaczają zmianę w innej karcie i kończą się 409.
+   * Zapisuje szkic: `photoIds` to zdjęcia labelu w kolejności (już należące do szkicu albo oczekujące
+   * z odczytu), `state` to stan kreatora. Zdjęcia szkicu, których kreator już nie używa, są usuwane.
    */
-  async replace(id: string, previous: string[], images: LabelImage[], userId: number | null) {
+  async save(id: string, photoIds: string[], state: unknown): Promise<LabelDraft> {
     const client = await this.pool.connect();
-    const saved: LabelDraftPhoto[] = [];
     let removed: LabelDraftPhoto[];
+    let draft: LabelDraft | undefined;
 
     try {
       await client.query("BEGIN");
@@ -72,31 +66,30 @@ export class LabelDraftService {
         new Date(Date.now() - LABEL_DRAFT_TTL_MS),
       );
       const current = await this.drafts.lock(client, id);
+      const currentIds = new Set(current.map((photo) => photo.id));
+      const added = photoIds.filter((photoId) => !currentIds.has(photoId));
+      const attached = await this.drafts.attachPending(client, id, added, PENDING_UPLOAD_TTL_MS);
 
-      if (!sameIds(previous, current)) {
-        throw new LabelDraftConflictError();
+      if (attached.length !== added.length) {
+        throw new LabelDraftPhotosUnavailableError();
       }
 
-      removed = [...abandoned, ...current];
-      await this.drafts.deletePhotos(client, id);
+      const unused = current.filter((photo) => !photoIds.includes(photo.id));
 
-      for (const [position, image] of images.entries()) {
-        const photoId = randomUUID();
-        const path = await this.storage.save(
-          image.data,
-          `products/photo/label-${photoId}.${EXTENSION_BY_MEDIA_TYPE[image.mediaType]}`,
-          image.mediaType,
+      if (unused.length > 0) {
+        await this.drafts.deletePhotos(
+          client,
+          id,
+          unused.map((photo) => photo.id),
         );
-        const photo = { id: photoId, path, contentType: image.mediaType };
-
-        saved.push(photo);
-        await this.drafts.addPhoto(client, { ...photo, draftId: id, position, createdBy: userId });
       }
 
+      await this.drafts.saveState(client, id, photoIds, state);
+      [draft] = await this.drafts.list(client, id);
       await client.query("COMMIT");
+      removed = [...abandoned, ...unused];
     } catch (error) {
       await client.query("ROLLBACK");
-      await this.deleteFiles(saved);
       throw error;
     } finally {
       client.release();
@@ -105,54 +98,40 @@ export class LabelDraftService {
     // Pliki kasujemy dopiero po zatwierdzeniu, żeby wycofana transakcja nie zostawiła wierszy bez plików.
     await this.deleteFiles(removed);
 
-    return { id, photos: saved, result: null };
+    if (!draft) {
+      throw new LabelDraftNotFoundError(id);
+    }
+
+    return draft;
   }
 
-  /** Odczytuje label ze zdjęć szkicu i zapamiętuje wynik; awaria integracji daje wynik `failed`, nie błąd. */
-  async read(id: string, previous: string[]) {
-    const draft = await this.get(id);
-    const ids = draft.photos.map((photo) => photo.id);
-
-    if (!sameIds(previous, draft.photos)) {
-      throw new LabelDraftConflictError();
-    }
-
-    const images = await Promise.all(
-      draft.photos.map(async (photo) => ({
-        data: await this.storage.read(photo.path),
-        mediaType: photo.contentType,
-      })),
-    );
-
-    let result;
+  /** Usuwa szkic razem z plikami zdjęć (pliki dopiero po zatwierdzeniu transakcji). */
+  async delete(id: string): Promise<void> {
+    const client = await this.pool.connect();
+    let photos: LabelDraftPhoto[];
 
     try {
-      result = {
-        kind: "found" as const,
-        ...(await this.recordLookup.readLabelPhotos(images, ids)),
-      };
-    } catch (error) {
-      if (!(error instanceof PhotoLookupError)) {
-        throw error;
+      await client.query("BEGIN");
+      photos = await this.drafts.lock(client, id);
+
+      if (photos.length === 0) {
+        throw new LabelDraftNotFoundError(id);
       }
 
-      result = {
-        kind: "failed" as const,
-        reading: null,
-        message: error.message,
-        photoUploadIds: ids,
-      };
-    }
-
-    const client = await this.pool.connect();
-
-    try {
-      await this.drafts.saveResult(client, ids[0]!, result);
+      await this.drafts.deletePhotos(
+        client,
+        id,
+        photos.map((photo) => photo.id),
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
     } finally {
       client.release();
     }
 
-    return result;
+    await this.deleteFiles(photos);
   }
 
   private async deleteFiles(photos: LabelDraftPhoto[]) {
@@ -163,6 +142,3 @@ export class LabelDraftService {
     }
   }
 }
-
-const sameIds = (ids: string[], photos: LabelDraftPhoto[]) =>
-  ids.length === photos.length && ids.every((id, index) => id === photos[index]?.id);

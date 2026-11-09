@@ -67,7 +67,7 @@ const PhotosStep = ({ labelPhotos, extraPhotos, onExtraPhotosChange, onNext }: P
       {pickError && <ErrorState message={pickError} />}
 
       <Button size="xl" fullWidth rightSection={<IconArrowRight size={26} aria-hidden="true" />} onClick={onNext}>
-        {extraPhotos.length ? "Dalej: podsumowanie" : "Pomiń, dalej"}
+        Dalej: podsumowanie
       </Button>
     </Stack>
   );

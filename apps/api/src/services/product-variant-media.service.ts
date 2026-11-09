@@ -119,6 +119,8 @@ export class ProductVariantMediaService {
     const client = await this.pool.connect();
 
     try {
+      // Zmiana głównego zdjęcia to dwa zapisy (zdjęcie poprzedniego i ustawienie nowego).
+      await client.query("BEGIN");
       const media = await this.productVariantMediaRepository.update(
         client,
         mediaId,
@@ -126,12 +128,16 @@ export class ProductVariantMediaService {
         sortOrder,
         isPrimary,
       );
+      await client.query("COMMIT");
 
       if (media) {
         await this.productCache.clear();
       }
 
       return media;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
     } finally {
       client.release();
     }

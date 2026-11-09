@@ -43,6 +43,7 @@ const makeProduct = (overrides: Partial<Product> = {}): Product => ({
   title: "Jah Prophecy",
   slug: "bunnington-judah-zulu-vibes-jah-prophecy-1",
   description: null,
+  primaryPhotoUrl: null,
   isPublished: false,
   attributes: vinylAttributes,
   isDeleted: false,
@@ -115,6 +116,7 @@ describe("ProductService", () => {
       findMatching: jest.fn(),
       delete: jest.fn(),
       hardDelete: jest.fn(),
+      setPrimaryPhoto: jest.fn(),
     };
 
     productVariantRepository = {
@@ -130,9 +132,9 @@ describe("ProductService", () => {
 
     storage = {
       save: jest.fn(),
+      copy: jest.fn(),
       delete: jest.fn(),
       exists: jest.fn(),
-      read: jest.fn(),
     };
 
     exchangeRates = {
@@ -386,9 +388,33 @@ describe("ProductService", () => {
           discogsReleaseId: "34434571",
           catalogNumber: "zv7006",
           label: "zulu vibes",
-          title: "jah prophecy",
-          artists: ["bunnington judah", "zulu vibes"],
+          title: "jahprophecy",
+          artists: ["bunningtonjudah", "zuluvibes"],
+          discogsMasterId: null,
+          discogsArtistIds: null,
         },
+        10,
+      );
+    });
+
+    it("should compare only side A of the title and artists without Discogs suffixes", async () => {
+      productRepository.findMatching.mockResolvedValue([]);
+
+      await productService.findMatchingProducts({
+        title: "Moulding / Africa",
+        artists: ["I Jahman*", "Prince Far I (2)"],
+        discogsMasterId: 123,
+        discogsArtistIds: [55],
+      });
+
+      expect(productRepository.findMatching).toHaveBeenCalledWith(
+        client,
+        expect.objectContaining({
+          title: "moulding",
+          artists: ["ijahman", "princefari"],
+          discogsMasterId: "123",
+          discogsArtistIds: [55],
+        }),
         10,
       );
     });

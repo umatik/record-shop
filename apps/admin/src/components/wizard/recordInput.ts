@@ -26,6 +26,8 @@ export function buildProductInput(
       artists,
       tracklist: details.discogs?.tracklist ?? [],
       previewLinks: details.discogs?.previewLinks ?? [],
+      ...optional("discogsMasterId", details.discogs?.discogsMasterId),
+      ...(details.discogs?.discogsArtistIds?.length ? { discogsArtistIds: details.discogs.discogsArtistIds } : {}),
     },
     variants: [
       {

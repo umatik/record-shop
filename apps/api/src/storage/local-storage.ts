@@ -24,8 +24,13 @@ export class LocalStorage implements Storage {
     return filename;
   }
 
-  read(filePath: string): Promise<Buffer> {
-    return fs.readFile(path.join(this.basePath, filePath));
+  async copy(from: string, to: string): Promise<string> {
+    const target = path.join(this.basePath, to);
+
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.copyFile(path.join(this.basePath, from), target);
+
+    return to;
   }
 
   async delete(filePath: string): Promise<void> {

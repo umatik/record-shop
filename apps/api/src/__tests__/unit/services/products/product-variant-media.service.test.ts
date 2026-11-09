@@ -32,6 +32,7 @@ describe("ProductVariantMediaService", () => {
   } as unknown as jest.Mocked<Storage>;
 
   const client = {
+    query: jest.fn(),
     release: jest.fn(),
   } as unknown as PoolClient;
 

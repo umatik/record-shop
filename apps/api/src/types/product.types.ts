@@ -13,6 +13,8 @@ export type Product = {
   isPublished: boolean;
   /** Pola zależne od typu produktu, zob. `src/product-types/`. */
   attributes: Record<string, unknown>;
+  /** Główne zdjęcie produktu (ścieżka w storage), osobne od zdjęć wariantów. */
+  primaryPhotoUrl: string | null;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -93,9 +95,17 @@ export type ProductMatchCriteria = {
   label?: string | undefined;
   title?: string | undefined;
   artists?: string[] | undefined;
+  /** Master release z Discogs: wspólny dla wszystkich wydań tego samego nagrania. */
+  discogsMasterId?: number | undefined;
+  /** Numery artystów z Discogs: pasują także przy innej nazwie artysty na wydaniu. */
+  discogsArtistIds?: number[] | undefined;
 };
 
-export type ProductMatchReason = "discogs_release" | "catalog_number" | "title_artist";
+export type ProductMatchReason =
+  | "discogs_release"
+  | "catalog_number"
+  | "discogs_master"
+  | "title_artist";
 
 /**
  * Istniejący produkt, do którego można dodać nowy wariant zamiast tworzyć kolejny produkt.

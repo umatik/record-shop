@@ -104,4 +104,44 @@ describe("HttpDiscogsClient", () => {
 
     await expect(client.getRelease(1)).rejects.toBeInstanceOf(ExternalServiceError);
   });
+
+  describe("downloadImage", () => {
+    const imageResponse = (contentType: string, bytes = 3, status = 200) =>
+      ({
+        ok: status >= 200 && status < 300,
+        status,
+        headers: new Headers({ "content-type": contentType }),
+        arrayBuffer: async () => new ArrayBuffer(bytes),
+      }) as Response;
+
+    it("should download an image from the Discogs image server with the user agent", async () => {
+      fetchFn.mockResolvedValue(imageResponse("image/jpeg"));
+
+      const image = await client.downloadImage("https://i.discogs.com/abc/cover.jpeg");
+
+      expect(image.contentType).toBe("image/jpeg");
+      expect(image.data).toHaveLength(3);
+      expect(fetchFn.mock.calls[0]![1]?.headers).toEqual({ "User-Agent": "RasBassShop/1.0" });
+    });
+
+    it("should not download from other hosts", async () => {
+      await expect(client.downloadImage("https://example.com/cover.jpg")).rejects.toBeInstanceOf(
+        ExternalServiceError,
+      );
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it("should reject unsupported, empty and failed images", async () => {
+      fetchFn
+        .mockResolvedValueOnce(imageResponse("image/gif"))
+        .mockResolvedValueOnce(imageResponse("image/png", 0))
+        .mockResolvedValueOnce(imageResponse("image/png", 3, 404));
+
+      for (let i = 0; i < 3; i++) {
+        await expect(client.downloadImage("https://i.discogs.com/a.png")).rejects.toBeInstanceOf(
+          ExternalServiceError,
+        );
+      }
+    });
+  });
 });

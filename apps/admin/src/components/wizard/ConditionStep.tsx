@@ -9,16 +9,21 @@ import ConditionNoteField from "./ConditionNoteField";
 import GradePicker from "@/components/fields/GradePicker";
 import PriceField from "@/components/fields/PriceField";
 import QuantityStepper from "@/components/fields/QuantityStepper";
+import type { FromLabel, RecordDetails } from "./details";
+import PressingFields from "./PressingFields";
 import StepTitle from "./StepTitle";
 
 type ConditionStepProps = {
+  details: RecordDetails;
+  onDetailsChange: (patch: Partial<RecordDetails>) => void;
+  fromLabel: FromLabel;
   form: ConditionForm;
   onChange: (patch: Partial<ConditionForm>) => void;
   onNext: () => void;
 };
 
-/** Krok 4: stan płyty i okładki w skali Goldmine, cena w euro, ilość i notatka o stanie. */
-const ConditionStep = ({ form, onChange, onNext }: ConditionStepProps) => {
+/** Krok 4: wariant, czyli tłoczenie, stan płyty i okładki w skali Goldmine, cena w euro, ilość i notatka o stanie. */
+const ConditionStep = ({ details, onDetailsChange, fromLabel, form, onChange, onNext }: ConditionStepProps) => {
   const [showErrors, setShowErrors] = useState(false);
   const errors = conditionErrors(form);
   const shown = (message: string | null) => (showErrors ? message : null);
@@ -34,7 +39,9 @@ const ConditionStep = ({ form, onChange, onNext }: ConditionStepProps) => {
         else setShowErrors(true);
       }}
     >
-      <StepTitle id="condition-step-title" title="Stan i cena" />
+      <StepTitle id="condition-step-title" title="Wariant" />
+
+      <PressingFields details={details} onChange={onDetailsChange} fromLabel={fromLabel} />
 
       <GradePicker
         legend="Stan płyty"

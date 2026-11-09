@@ -1,7 +1,6 @@
 import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { IconArrowRight } from "@tabler/icons-react";
 import type { ProductMatch } from "@/types/lookup";
-import ChoiceField from "./ChoiceField";
 import type { DetailsField, FromLabel, RecordDetails } from "./details";
 import ExistingProductsAlert from "./ExistingProductsAlert";
 import FromLabelHint from "./FromLabelHint";
@@ -20,21 +19,33 @@ type DetailsStepProps = {
   onNext: () => void;
 };
 
-const TEXT_FIELDS: { field: DetailsField; label: string; numeric?: boolean }[] = [
+const TEXT_FIELDS: { field: DetailsField; label: string }[] = [
   { field: "artists", label: "Artysta" },
   { field: "title", label: "Tytuł" },
-  { field: "label", label: "Wytwórnia" },
-  { field: "catalogNumber", label: "Numer katalogowy" },
-  { field: "year", label: "Rok", numeric: true },
 ];
 
-const FORMATS = ["LP", '12"', '10"', '7"'].map((format) => ({ value: format, label: format }));
-const SPEEDS = [
-  { value: "33", label: "33 RPM" },
-  { value: "45", label: "45 RPM" },
-];
+type ReadOnlyValueProps = { label: string; value: string };
 
-/** Krok 3: sprawdzenie i poprawa danych płyty, z ostrzeżeniem o płytach, które już są w sklepie. */
+/** Wiersz danych tylko do odczytu: etykieta po lewej, wartość po prawej, linia pod spodem. */
+const ReadOnlyValue = ({ label, value }: ReadOnlyValueProps) => (
+  <Group
+    justify="space-between"
+    wrap="nowrap"
+    gap="md"
+    align="baseline"
+    py="xs"
+    style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+  >
+    <Text component="dt" c="dimmed" fz="md" style={{ flexShrink: 0 }}>
+      {label}
+    </Text>
+    <Text component="dd" fz="lg" fw={600} ta="right" m={0}>
+      {value || "—"}
+    </Text>
+  </Group>
+);
+
+/** Krok 3: artysta i tytuł płyty (dane produktu), z ostrzeżeniem o płytach, które już są w sklepie. */
 const DetailsStep = ({
   details,
   onChange,
@@ -44,74 +55,69 @@ const DetailsStep = ({
   destination,
   onDestination,
   onNext,
-}: DetailsStepProps) => (
-  <Stack
-    component="form"
-    aria-labelledby="details-step-title"
-    gap="lg"
-    onSubmit={(event) => {
-      event.preventDefault();
-      onNext();
-    }}
-  >
-    <StepTitle id="details-step-title" title="Sprawdź dane" />
+}: DetailsStepProps) => {
+  const valueOf = (field: DetailsField) =>
+    target && field === "artists"
+      ? target.artists.join(", ")
+      : target && field === "title"
+        ? target.title
+        : details[field];
 
-    {existingProducts.length > 0 && (
-      <ExistingProductsAlert matches={existingProducts} destination={destination} onChange={onDestination} />
-    )}
+  return (
+    <Stack
+      component="form"
+      aria-labelledby="details-step-title"
+      gap="lg"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onNext();
+      }}
+    >
+      <StepTitle id="details-step-title" title="Sprawdź dane" />
 
-    {TEXT_FIELDS.map(({ field, label, numeric }) => (
-      <TextInput
-        key={field}
-        size="lg"
-        label={
-          <Group gap="xs" component="span">
-            {label}
-            <FromLabelHint show={fromLabel[field]} />
-          </Group>
-        }
-        readOnly={Boolean(target) && (field === "artists" || field === "title")}
-        value={
-          target && field === "artists"
-            ? target.artists.join(", ")
-            : target && field === "title"
-              ? target.title
-              : details[field]
-        }
-        onChange={(event) => onChange({ [field]: event.currentTarget.value })}
-        {...(numeric && { inputMode: "numeric" as const })}
-      />
-    ))}
+      {existingProducts.length > 0 && (
+        <ExistingProductsAlert matches={existingProducts} destination={destination} onChange={onDestination} />
+      )}
 
-    <ChoiceField
-      legend="Format"
-      value={details.format}
-      onChange={(format) => onChange({ format: format as RecordDetails["format"] })}
-      options={FORMATS}
-      fromLabel={fromLabel.format}
-    />
-    <ChoiceField
-      legend="Prędkość"
-      value={details.speed}
-      onChange={(speed) => onChange({ speed: speed as RecordDetails["speed"] })}
-      options={SPEEDS}
-      fromLabel={fromLabel.speed}
-    />
+      {/* Wariant istniejącej płyty: artysta i tytuł należą do niej, więc są zwykłym tekstem. Tłoczenie jest w kroku wariantu. */}
+      {target ? (
+        <Stack component="dl" gap={0} m={0}>
+          {TEXT_FIELDS.map(({ field, label }) => (
+            <ReadOnlyValue key={field} label={label} value={valueOf(field)} />
+          ))}
+        </Stack>
+      ) : (
+        TEXT_FIELDS.map(({ field, label }) => (
+          <TextInput
+            key={field}
+            size="lg"
+            label={
+              <Group gap="xs" component="span">
+                {label}
+                <FromLabelHint show={fromLabel[field]} />
+              </Group>
+            }
+            value={details[field]}
+            onChange={(event) => onChange({ [field]: event.currentTarget.value })}
+          />
+        ))
+      )}
 
-    {details.discogsReleaseId && (
-      <Text fz="sm" c="dimmed">
-        Z Discogs: {details.tracklistCount} utworów, {details.previewLinksCount} linków do odsłuchu. Data provided by
-        Discogs.{" "}
-        <ExternalLink href={`https://www.discogs.com/release/${details.discogsReleaseId}`} inherit>
-          Zobacz wydanie
-        </ExternalLink>
-      </Text>
-    )}
+      {details.discogsReleaseId && (
+        <Text fz="sm" c="dimmed">
+          Z Discogs: {details.tracklistCount} utworów, {details.previewLinksCount} linków do odsłuchu. Data provided by
+          Discogs.{" "}
+          <ExternalLink href={`https://www.discogs.com/release/${details.discogsReleaseId}`} inherit>
+            Zobacz wydanie
+          </ExternalLink>
+        </Text>
+      )}
 
-    <Button type="submit" size="xl" fullWidth rightSection={<IconArrowRight size={26} aria-hidden="true" />}>
-      Dalej: stan i cena
-    </Button>
-  </Stack>
-);
+      <Button type="submit" size="xl" fullWidth rightSection={<IconArrowRight size={26} aria-hidden="true" />}>
+        Dalej: wariant
+      </Button>
+    </Stack>
+  );
+};
 
 export default DetailsStep;

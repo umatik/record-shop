@@ -1,11 +1,22 @@
-import type { LabelLookupResult } from "@/types/lookup";
+import type { FromLabel, RecordDetails } from "@/components/wizard/details";
+import type { LabelReading, ProductMatch, ReleaseCandidate } from "@/types/lookup";
 import { mediaSrc } from "@/lib/format";
-import { ApiError, request } from "./http";
+import { request } from "./http";
+
+/** Stan kreatora zapisany przy kroku „Sprawdź dane”; po powrocie kreator otwiera się na tym kroku. */
+export type WizardDraftState = {
+  reading: LabelReading | null;
+  candidates: ReleaseCandidate[];
+  details: RecordDetails;
+  fromLabel: FromLabel;
+  existingProducts: ProductMatch[];
+  notice: string | null;
+};
 
 export type LabelDraft = {
   id: string;
   photos: { id: string; path: string; contentType: string }[];
-  result: LabelLookupResult | null;
+  state: WizardDraftState | null;
 };
 
 export async function getLabelDrafts() {
@@ -13,6 +24,7 @@ export async function getLabelDrafts() {
   return drafts;
 }
 
+/** Szkic razem ze zdjęciami labelu jako plikami, tak jak kreator trzyma je po zrobieniu zdjęcia. */
 export async function loadLabelDraft(id: string) {
   const draft = await request<LabelDraft>(`/products/lookup/drafts/${encodeURIComponent(id)}`);
   const files = await Promise.all(
@@ -25,31 +37,14 @@ export async function loadLabelDraft(id: string) {
   return { draft, files };
 }
 
-function photoForm(photos: File[], previous: string[]) {
-  const form = new FormData();
-  photos.forEach((photo) => form.append("images", photo));
-  form.append("previous", previous.join());
-  return form;
-}
-
-/** 409: zdjęcia szkicu zmieniono w innej karcie albo na innym urządzeniu. */
-function explainConflict(error: unknown): never {
-  if (error instanceof ApiError && error.status === 409) {
-    throw new ApiError("Ten szkic zmienił się w innym oknie. Otwórz go ponownie z listy szkiców.", 409);
-  }
-  throw error;
-}
-
-export function saveLabelDraft(id: string, photos: File[], previous: string[]) {
-  return request<LabelDraft>(`/products/lookup/drafts/${id}`, {
+/** Zapis szkicu: zdjęcia z odczytu labelu (w kolejności) przechodzą do szkicu razem ze stanem kreatora. */
+export function saveLabelDraft(id: string, photoUploadIds: string[], state: WizardDraftState) {
+  return request<LabelDraft>(`/products/lookup/drafts/${encodeURIComponent(id)}`, {
     method: "PUT",
-    form: photoForm(photos, previous),
-  }).catch(explainConflict);
+    json: { photoUploadIds, state },
+  });
 }
 
-export function readLabelDraft(id: string, previous: string[]) {
-  return request<LabelLookupResult>(`/products/lookup/drafts/${id}/read`, {
-    method: "POST",
-    json: { previous: previous.join() },
-  }).catch(explainConflict);
+export async function deleteLabelDraft(id: string) {
+  await request(`/products/lookup/drafts/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

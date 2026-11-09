@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Stack, Textarea, TextInput, Title } from "@mantine/core";
+import { Button, Stack, Textarea, TextInput } from "@mantine/core";
 import { IconDeviceFloppy } from "@tabler/icons-react";
 import { useState } from "react";
 import ErrorState from "@/components/ui/ErrorState";
@@ -28,7 +28,7 @@ const ProductInfoForm = ({ product }: ProductInfoFormProps) => {
   return (
     <Stack
       component="form"
-      aria-labelledby="info-title"
+      aria-label="Dane płyty"
       gap="md"
       onSubmit={(event) => {
         event.preventDefault();
@@ -44,9 +44,6 @@ const ProductInfoForm = ({ product }: ProductInfoFormProps) => {
         );
       }}
     >
-      <Title id="info-title" order={2}>
-        Płyta
-      </Title>
       <TextInput
         size="lg"
         label="Artysta"

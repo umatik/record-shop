@@ -1,7 +1,6 @@
 import { Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import RecordThumb from "@/components/records/RecordThumb";
-import { THUMB_SIZE } from "@/lib/theme";
 import type { ReleaseCandidate } from "@/types/lookup";
 import ExternalLink from "@/components/ui/ExternalLink";
 
@@ -38,7 +37,8 @@ const CandidateRow = ({ candidate, onPick }: CandidateRowProps) => {
           <IconChevronRight size={28} aria-hidden="true" />
         </Group>
       </UnstyledButton>
-      <ExternalLink href={discogsUrl(candidate.releaseId)} fz="md" pl={THUMB_SIZE + 16}>
+      {/* Przy lewej krawędzi, pod miniaturą: nie trzeba go równać z tekstem obok. */}
+      <ExternalLink href={discogsUrl(candidate.releaseId)} fz="md" w="fit-content">
         Zobacz na Discogs
       </ExternalLink>
     </Stack>

@@ -59,8 +59,8 @@ export interface ProductRepository {
 
   /**
    * Produkty pasujące do dodawanej płyty: po ID wydania z Discogs, po numerze katalogowym (opcjonalnie
-   * z wytwórnią) albo po tytule i artyście. Parametry muszą być już znormalizowane (małe litery; numer
-   * katalogowy tylko litery i cyfry).
+   * z wytwórnią), po master release z Discogs albo po tytule i artyście (nazwa albo numer z Discogs).
+   * Parametry muszą być już znormalizowane (zob. `normalizeTitle`, `normalizeArtist` w serwisie).
    */
   findMatching(
     client: PoolClient,
@@ -70,10 +70,15 @@ export interface ProductRepository {
       label: string | null;
       title: string | null;
       artists: string[] | null;
+      discogsMasterId: string | null;
+      discogsArtistIds: number[] | null;
     },
     limit: number,
   ): Promise<ProductMatch[]>;
 
   /** Trwałe usunięcie razem z wariantami i mediami. */
   hardDelete(client: PoolClient, id: number): Promise<boolean>;
+
+  /** Ustawia główne zdjęcie produktu i zwraca poprzedni adres (`undefined`, gdy produktu nie ma). */
+  setPrimaryPhoto(client: PoolClient, id: number, url: string): Promise<string | null | undefined>;
 }

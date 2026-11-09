@@ -184,6 +184,7 @@ const productVariantMediaController = new ProductVariantMediaController(
 export const productRouter = createProductRouter(
   productController,
   authorizationService,
+  upload,
 );
 
 export const productVariantMediaRouter = createProductVariantMediaRoutes(
@@ -208,7 +209,8 @@ export const recordLookupRouter = createRecordLookupRouter(
   new RecordLookupController(
     recordLookupService,
     productService,
-    new LabelDraftService(new LabelDraftPostgresRepository(), storage, pool, recordLookupService),
+    new LabelDraftService(new LabelDraftPostgresRepository(), storage, pool),
+    productVariantMediaService,
   ),
   authorizationService,
   upload,

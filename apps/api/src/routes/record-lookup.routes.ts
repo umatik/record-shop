@@ -25,40 +25,44 @@ export const createRecordLookupRouter = (
    * @openapi
    * /products/lookup/drafts:
    *   get:
-   *     summary: List durable label-photo drafts
+   *     summary: List wizard drafts (label photos and wizard state)
    *     security: [{ bearerAuth: [] }]
-   *     responses: { '200': { description: Drafts with ordered photos and last lookup } }
+   *     responses: { '200': { description: Drafts with ordered photos and wizard state } }
    * /products/lookup/drafts/{id}:
    *   parameters:
    *     - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
    *   get:
-   *     summary: Resume a label-photo draft
+   *     summary: Resume a wizard draft
    *     security: [{ bearerAuth: [] }]
-   *     responses: { '200': { description: Draft with photos }, '404': { description: Missing draft } }
+   *     responses: { '200': { description: Draft with photos and state }, '404': { description: Missing draft } }
    *   put:
-   *     summary: Save or replace draft photos (empty list removes the draft)
+   *     summary: Save a wizard draft when the wizard reaches the record details
+   *     description: >
+   *       Takes pending label photos from the photo lookup (or photos already in this draft) in order,
+   *       together with the wizard state. Photos of the draft left out of the list are deleted.
    *     security: [{ bearerAuth: [] }]
    *     requestBody:
+   *       required: true
    *       content:
-   *         multipart/form-data:
+   *         application/json:
    *           schema:
    *             type: object
+   *             required: [photoUploadIds, state]
    *             properties:
-   *               previous: { type: string, description: Comma-separated previous photo ids in order }
-   *               images: { type: array, maxItems: 2, items: { type: string, format: binary } }
-   *     responses: { '200': { description: Saved draft }, '409': { description: Concurrent change } }
-   * /products/lookup/drafts/{id}/read:
-   *   parameters:
-   *     - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
-   *   post:
-   *     summary: Recognize draft photos and save the result for resuming
+   *               photoUploadIds: { type: array, minItems: 1, maxItems: 2, items: { type: string, format: uuid } }
+   *               state: { type: object, description: Wizard state, stored as is }
+   *     responses:
+   *       '200': { description: Saved draft }
+   *       '400': { description: Invalid body, or photos expired or already used }
+   *   delete:
+   *     summary: Delete a wizard draft with its photos
    *     security: [{ bearerAuth: [] }]
-   *     responses: { '200': { description: Lookup result including photo ids } }
+   *     responses: { '204': { description: Deleted }, '404': { description: Missing draft } }
    */
   router.get("/lookup/drafts", ...canCreate, controller.listDrafts);
   router.get("/lookup/drafts/:id", ...canCreate, controller.getDraft);
-  router.put("/lookup/drafts/:id", ...canCreate, upload.array("images", MAX_LABEL_IMAGES), controller.saveDraft);
-  router.post("/lookup/drafts/:id/read", ...canCreate, controller.readDraft);
+  router.put("/lookup/drafts/:id", ...canCreate, controller.saveDraft);
+  router.delete("/lookup/drafts/:id", ...canCreate, controller.deleteDraft);
 
   /**
    * @openapi
@@ -177,8 +181,9 @@ export const createRecordLookupRouter = (
    *     description: >-
    *       A product is an album, so a new copy or pressing should usually become a variant of an existing
    *       product. Matches (strongest first): same Discogs release (`discogs_release`), same catalog number,
-   *       optionally with the label (`catalog_number`, ignores case, spaces and dashes), same title with one of
-   *       the artists (`title_artist`). `matchingVariantIds` are variants of the same pressing, e.g. to raise
+   *       optionally with the label (`catalog_number`, ignores case, spaces and dashes), same Discogs master
+   *       release (`discogs_master`, any pressing of the same recording), same title (side A only, before
+   *       "/") with one of the artists, by name without Discogs suffixes or by Discogs artist id (`title_artist`). `matchingVariantIds` are variants of the same pressing, e.g. to raise
    *       the quantity instead of adding a variant. Also returned by GET /products/lookup/releases/{releaseId}.
    *     security:
    *       - bearerAuth: []
@@ -188,11 +193,13 @@ export const createRecordLookupRouter = (
    *       - { in: query, name: label, schema: { type: string } }
    *       - { in: query, name: title, schema: { type: string } }
    *       - { in: query, name: artist, schema: { type: string } }
+   *       - { in: query, name: discogsMasterId, schema: { type: integer } }
+   *       - { in: query, name: discogsArtistId, schema: { type: integer } }
    *     responses:
    *       200:
    *         description: "`existingProducts` (up to 10, may be empty)"
    *       400:
-   *         description: None of discogsReleaseId, catalogNumber or title given
+   *         description: None of discogsReleaseId, catalogNumber, discogsMasterId or title given
    */
   router.get("/lookup/existing", ...canCreate, controller.findExistingProducts);
 
@@ -225,6 +232,41 @@ export const createRecordLookupRouter = (
    *         description: Claude is not configured
    */
   router.post("/lookup/condition-note", ...canCreate, controller.translateConditionNote);
+
+  /**
+   * @openapi
+   * /products/{id}/variants/{variantId}/discogs-cover:
+   *   post:
+   *     tags: [Products – wizard]
+   *     summary: Add the Discogs cover of the variant's release as a variant photo
+   *     description: >-
+   *       Uses the variant's `discogsReleaseId`, takes the release's primary image (or the first one) and saves
+   *       it as the next photo of the variant. It becomes the primary photo when the variant has no photos.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: path, name: id, required: true, schema: { type: integer } }
+   *       - { in: path, name: variantId, required: true, schema: { type: integer } }
+   *     responses:
+   *       201:
+   *         description: The created media
+   *       400:
+   *         description: Invalid ids or the variant has no discogsReleaseId
+   *       404:
+   *         description: Variant not found, or Discogs has no cover for the release
+   *       409:
+   *         description: The variant already has the Discogs cover (photo with alt "Okładka z Discogs")
+   *       502:
+   *         description: Discogs failed
+   *       503:
+   *         description: Discogs is not configured
+   */
+  router.post(
+    "/:id/variants/:variantId/discogs-cover",
+    authenticationMiddleware,
+    requirePermission(authorizationService, "products:update"),
+    controller.addDiscogsCover,
+  );
 
   return router;
 };

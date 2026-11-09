@@ -7,10 +7,10 @@ export class LabelDraftNotFoundError extends AppError {
   }
 }
 
-/** Zdjęcia szkicu zmieniły się w innej karcie albo na innym urządzeniu. */
-export class LabelDraftConflictError extends AppError {
+/** Zdjęcia z odczytu labelu wygasły albo trafiły już do innego szkicu lub płyty. */
+export class LabelDraftPhotosUnavailableError extends AppError {
   constructor() {
-    super("The draft photos have changed. Reopen the draft from the drafts list.", 409);
-    this.name = "LabelDraftConflictError";
+    super("Some label photos have expired or are already used. Read the label again.", 400);
+    this.name = "LabelDraftPhotosUnavailableError";
   }
 }

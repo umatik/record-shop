@@ -1,4 +1,4 @@
-import type { Product } from "@/types/product";
+import type { Product, Variant } from "@/types/product";
 
 const eurWhole = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const eurCents = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "EUR" });
@@ -21,8 +21,17 @@ export const productArtist = (product: Product) => product.attributes.artists?.j
  */
 export const mediaSrc = (url: string) => (/^https?:\/\//.test(url) || url.startsWith("/") ? url : `/uploads/${url}`);
 
+/** Główne zdjęcie płyty; starsze płyty bez niego pokazują główne zdjęcie któregoś wariantu. */
 export function primaryPhoto(product: Product): string | undefined {
+  if (product.primaryPhotoUrl) return mediaSrc(product.primaryPhotoUrl);
   const media = product.variants.flatMap((variant) => variant.media).filter((m) => m.type === "photo");
+  const photo = media.find((m) => m.isPrimary) ?? media[0];
+  return photo && mediaSrc(photo.url);
+}
+
+/** Główne zdjęcie wariantu (oznaczone jako główne albo pierwsze). */
+export function variantPhoto(variant: Variant): string | undefined {
+  const media = variant.media.filter((m) => m.type === "photo");
   const photo = media.find((m) => m.isPrimary) ?? media[0];
   return photo && mediaSrc(photo.url);
 }
@@ -51,3 +60,16 @@ export const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - n
 
 const dateTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeStyle: "short" });
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
+
+/**
+ * Strona płyty na Discogs: master release (wszystkie wydania), a bez niego wydanie pierwszego wariantu
+ * powiązanego z Discogs.
+ */
+export function discogsUrl(product: Product): string | undefined {
+  const masterId = product.attributes.discogsMasterId;
+  if (typeof masterId === "number") return `https://www.discogs.com/master/${masterId}`;
+  const releaseId = product.variants
+    .map((variant) => variant.attributes.discogsReleaseId)
+    .find((id) => typeof id === "number");
+  return releaseId === undefined ? undefined : `https://www.discogs.com/release/${releaseId}`;
+}

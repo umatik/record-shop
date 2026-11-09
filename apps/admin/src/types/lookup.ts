@@ -48,6 +48,8 @@ export type ReleaseDraft = {
       artists: string[];
       tracklist: { position?: string; title: string; artists?: string[]; duration?: string }[];
       previewLinks: string[];
+      discogsMasterId?: number;
+      discogsArtistIds?: number[];
     };
   };
   variant: {
@@ -71,7 +73,7 @@ export type ProductMatch = {
   title: string;
   artists: string[];
   isPublished: boolean;
-  matchedBy: ("discogs_release" | "catalog_number" | "title_artist")[];
+  matchedBy: ("discogs_release" | "catalog_number" | "discogs_master" | "title_artist")[];
   matchingVariantIds: number[];
 };
 

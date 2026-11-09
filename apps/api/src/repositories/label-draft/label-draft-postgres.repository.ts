@@ -12,8 +12,8 @@ export class LabelDraftPostgresRepository implements LabelDraftRepository {
     const result = await client.query<LabelDraft>(
       `
         SELECT draft_id AS id,
-               min(created_at) AS "createdAt",
-               (jsonb_agg(lookup_result ORDER BY position))->0 AS result,
+               max(draft_saved_at) AS "createdAt",
+               (jsonb_agg(wizard_state ORDER BY position))->0 AS state,
                jsonb_agg(
                  jsonb_build_object('id', id, 'path', path, 'contentType', content_type)
                  ORDER BY position
@@ -21,7 +21,7 @@ export class LabelDraftPostgresRepository implements LabelDraftRepository {
         FROM pending_uploads
         WHERE draft_id IS NOT NULL AND ($1::uuid IS NULL OR draft_id = $1)
         GROUP BY draft_id
-        ORDER BY min(created_at) DESC
+        ORDER BY max(draft_saved_at) DESC
       `,
       [id ?? null],
     );
@@ -46,28 +46,60 @@ export class LabelDraftPostgresRepository implements LabelDraftRepository {
     return result.rows;
   }
 
-  async deletePhotos(client: PoolClient, id: string): Promise<void> {
-    await client.query("DELETE FROM pending_uploads WHERE draft_id = $1", [id]);
+  async attachPending(
+    client: PoolClient,
+    id: string,
+    photoIds: string[],
+    maxAgeMs: number,
+  ): Promise<string[]> {
+    if (photoIds.length === 0) {
+      return [];
+    }
+
+    const result = await client.query<{ id: string }>(
+      `
+        UPDATE pending_uploads
+        SET draft_id = $1
+        WHERE id = ANY ($2::uuid[])
+          AND draft_id IS NULL
+          AND created_at > NOW() - ($3::bigint * INTERVAL '1 millisecond')
+        RETURNING id
+      `,
+      [id, photoIds, maxAgeMs],
+    );
+
+    return result.rows.map((row) => row.id);
   }
 
-  async addPhoto(
+  async saveState(
     client: PoolClient,
-    data: LabelDraftPhoto & { draftId: string; position: number; createdBy: number | null },
+    id: string,
+    photoIds: string[],
+    state: unknown,
   ): Promise<void> {
+    // Najpierw zdejmujemy pozycje, żeby zamiana kolejności nie naruszyła UNIQUE (draft_id, position).
+    await client.query(
+      "UPDATE pending_uploads SET position = NULL, wizard_state = NULL WHERE draft_id = $1",
+      [id],
+    );
     await client.query(
       `
-        INSERT INTO pending_uploads (id, path, content_type, created_by, draft_id, position)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        UPDATE pending_uploads AS upload
+        SET position = photo.position - 1,
+            wizard_state = CASE WHEN photo.position = 1 THEN $3::jsonb END,
+            draft_saved_at = NOW()
+        FROM unnest($2::uuid[]) WITH ORDINALITY AS photo (id, position)
+        WHERE upload.id = photo.id AND upload.draft_id = $1
       `,
-      [data.id, data.path, data.contentType, data.createdBy, data.draftId, data.position],
+      [id, photoIds, JSON.stringify(state)],
     );
   }
 
-  async saveResult(client: PoolClient, firstPhotoId: string, result: unknown): Promise<void> {
-    await client.query(
-      "UPDATE pending_uploads SET lookup_result = $2 WHERE id = $1 AND draft_id IS NOT NULL",
-      [firstPhotoId, JSON.stringify(result)],
-    );
+  async deletePhotos(client: PoolClient, id: string, photoIds: string[]): Promise<void> {
+    await client.query("DELETE FROM pending_uploads WHERE draft_id = $1 AND id = ANY ($2::uuid[])", [
+      id,
+      photoIds,
+    ]);
   }
 
   async deleteAbandoned(client: PoolClient, olderThan: Date): Promise<LabelDraftPhoto[]> {
@@ -79,7 +111,7 @@ export class LabelDraftPostgresRepository implements LabelDraftRepository {
           FROM pending_uploads
           WHERE draft_id IS NOT NULL
           GROUP BY draft_id
-          HAVING max(created_at) < $1
+          HAVING max(draft_saved_at) < $1
         )
         RETURNING ${PHOTO_COLUMNS}
       `,

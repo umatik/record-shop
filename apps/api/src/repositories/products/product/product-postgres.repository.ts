@@ -24,6 +24,7 @@ const PRODUCT_COLUMNS = `
   description,
   is_published AS "isPublished",
   attributes,
+  primary_photo_url AS "primaryPhotoUrl",
   is_deleted   AS "isDeleted",
   created_at   AS "createdAt",
   updated_at   AS "updatedAt",
@@ -58,6 +59,7 @@ export class PostgresProductRepository implements ProductRepository {
     description: row.description,
     isPublished: row.isPublished,
     attributes: row.attributes,
+    primaryPhotoUrl: row.primaryPhotoUrl ?? null,
     isDeleted: row.isDeleted,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -355,6 +357,10 @@ export class PostgresProductRepository implements ProductRepository {
         FROM product_variant_media pvm
                JOIN product_variants pv ON pv.id = pvm.product_variant_id
         WHERE pv.product_id = $1
+        UNION ALL
+        SELECT primary_photo_url
+        FROM products
+        WHERE id = $1 AND primary_photo_url IS NOT NULL
       `,
       [id],
     );
@@ -370,6 +376,8 @@ export class PostgresProductRepository implements ProductRepository {
       label: string | null;
       title: string | null;
       artists: string[] | null;
+      discogsMasterId: string | null;
+      discogsArtistIds: number[] | null;
     },
     limit: number,
   ): Promise<ProductMatch[]> {
@@ -381,6 +389,7 @@ export class PostgresProductRepository implements ProductRepository {
       isPublished: boolean;
       byRelease: string[];
       byCatalogNumber: string[];
+      byMaster: boolean;
       byTitle: boolean;
     }>(
       `
@@ -400,10 +409,14 @@ export class PostgresProductRepository implements ProductRepository {
                      AND ($3::text IS NULL OR lower(trim(pv.attributes ->> 'label')) = $3::text)
                      THEN pv.id END), NULL) AS "byCatalogNumber",
                  (
+                   $7::text IS NOT NULL AND p.attributes ->> 'discogsMasterId' = $7::text
+                 ) AS "byMaster",
+                 -- Tytuł jak w normalizeTitle, artysta jak w normalizeArtist albo ten sam numer artysty z Discogs.
+                 (
                    $4::text IS NOT NULL
-                     AND lower(trim(p.title)) = $4::text
+                     AND regexp_replace(lower(split_part(p.title, '/', 1)), '[^[:alnum:]]', '', 'g') = $4::text
                      AND (
-                       $5::text[] IS NULL
+                       ($5::text[] IS NULL AND $8::bigint[] IS NULL)
                        OR EXISTS (
                          SELECT 1
                          FROM jsonb_array_elements_text(
@@ -411,7 +424,19 @@ export class PostgresProductRepository implements ProductRepository {
                                        THEN p.attributes -> 'artists'
                                      ELSE '[]'::jsonb END
                               ) AS artist(name)
-                         WHERE lower(trim(artist.name)) = ANY ($5::text[])
+                         WHERE regexp_replace(
+                                 lower(regexp_replace(artist.name, '\\s*\\(\\d+\\)$', '')),
+                                 '[^[:alnum:]]', '', 'g'
+                               ) = ANY ($5::text[])
+                       )
+                       OR EXISTS (
+                         SELECT 1
+                         FROM jsonb_array_elements_text(
+                                CASE WHEN jsonb_typeof(p.attributes -> 'discogsArtistIds') = 'array'
+                                       THEN p.attributes -> 'discogsArtistIds'
+                                     ELSE '[]'::jsonb END
+                              ) AS artist_id(id)
+                         WHERE artist_id.id::bigint = ANY ($8::bigint[])
                        )
                      )
                  ) AS "byTitle"
@@ -426,9 +451,11 @@ export class PostgresProductRepository implements ProductRepository {
         FROM matches
         WHERE cardinality("byRelease") > 0
            OR cardinality("byCatalogNumber") > 0
+           OR "byMaster"
            OR "byTitle"
         ORDER BY cardinality("byRelease") > 0 DESC,
                  cardinality("byCatalogNumber") > 0 DESC,
+                 "byMaster" DESC,
                  id
         LIMIT $6
       `,
@@ -439,6 +466,8 @@ export class PostgresProductRepository implements ProductRepository {
         criteria.title,
         criteria.artists,
         limit,
+        criteria.discogsMasterId,
+        criteria.discogsArtistIds,
       ],
     );
 
@@ -447,6 +476,7 @@ export class PostgresProductRepository implements ProductRepository {
 
       if (row.byRelease.length > 0) matchedBy.push("discogs_release");
       if (row.byCatalogNumber.length > 0) matchedBy.push("catalog_number");
+      if (row.byMaster) matchedBy.push("discogs_master");
       if (row.byTitle) matchedBy.push("title_artist");
 
       return {
@@ -461,6 +491,23 @@ export class PostgresProductRepository implements ProductRepository {
           .sort((a, b) => a - b),
       };
     });
+  }
+
+  async setPrimaryPhoto(client: PoolClient, id: number, url: string): Promise<string | null | undefined> {
+    // Poprzedni adres z tego samego wiersza (podzapytanie widzi stan sprzed UPDATE), żeby skasować stary plik.
+    const result = await client.query<{ previous: string | null }>(
+      `
+        UPDATE products p
+        SET primary_photo_url = $2,
+            updated_at        = NOW()
+        FROM (SELECT id, primary_photo_url FROM products WHERE id = $1 FOR UPDATE) old
+        WHERE p.id = old.id AND p.is_deleted = FALSE
+        RETURNING old.primary_photo_url AS previous
+      `,
+      [id, url],
+    );
+
+    return result.rows[0] ? result.rows[0].previous : undefined;
   }
 
   async hardDelete(client: PoolClient, id: number): Promise<boolean> {

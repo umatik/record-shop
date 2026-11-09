@@ -25,6 +25,8 @@ const searchResponseSchema = z.object({
 });
 
 const namedSchema = z.object({
+  /** Numer artysty na Discogs: ten sam także przy innej nazwie na wydaniu („I Jahman*” = „Ijahman Levi”). */
+  id: optionalNumber,
   name: z.string(),
   anv: optionalText,
   join: optionalText,
@@ -33,6 +35,8 @@ const namedSchema = z.object({
 
 const releaseSchema = z.object({
   id: z.number(),
+  /** „Master release”: wspólny numer wszystkich wydań tego samego nagrania (tłoczenia, reedycje). */
+  master_id: optionalNumber,
   title: optionalText,
   year: optionalNumber,
   country: optionalText,
@@ -69,10 +73,25 @@ const releaseSchema = z.object({
     .array(z.object({ uri: z.string(), title: optionalText }))
     .optional()
     .catch(undefined),
+  /** Zdjęcia wydania; okładka ma zwykle typ „primary”. */
+  images: z
+    .array(z.object({ type: optionalText, uri: z.string() }))
+    .optional()
+    .catch(undefined),
 });
 
 export type DiscogsSearchResult = z.infer<typeof searchResultSchema>;
 export type DiscogsRelease = z.infer<typeof releaseSchema>;
+
+/** Pobrany obraz z Discogs. */
+export type DiscogsImage = {
+  data: Buffer;
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+};
+
+const IMAGE_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+/** Okładki z Discogs mają zwykle kilkaset kB; większy plik to coś nieoczekiwanego. */
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export type DiscogsSearchParams = {
   catno?: string | undefined;
@@ -87,6 +106,9 @@ export interface DiscogsClient {
 
   /** Szczegóły wydania albo `null`, gdy Discogs go nie zna. */
   getRelease(releaseId: number): Promise<DiscogsRelease | null>;
+
+  /** Pobiera obraz z serwera zdjęć Discogs (adres z `images[].uri` wydania). */
+  downloadImage(url: string): Promise<DiscogsImage>;
 }
 
 const BASE_URL = "https://api.discogs.com";
@@ -150,6 +172,44 @@ export class HttpDiscogsClient implements DiscogsClient {
     }
 
     return parsed.data;
+  }
+
+  async downloadImage(url: string): Promise<DiscogsImage> {
+    // Tylko serwer zdjęć Discogs: adres pochodzi z odpowiedzi Discogs, ale nie chcemy pobierać czegokolwiek.
+    if (new URL(url).hostname !== "i.discogs.com") {
+      throw new ExternalServiceError("Discogs returned an unexpected image address");
+    }
+
+    let response: Response;
+
+    try {
+      response = await this.fetchFn(url, {
+        headers: { "User-Agent": this.userAgent },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      throw new ExternalServiceError("Discogs is not reachable", error);
+    }
+
+    if (!response.ok) {
+      throw new ExternalServiceError(`Discogs image server responded with ${response.status}`);
+    }
+
+    const contentType = IMAGE_CONTENT_TYPES.find(
+      (type) => type === response.headers.get("content-type")?.split(";")[0]?.trim(),
+    );
+
+    if (!contentType) {
+      throw new ExternalServiceError("Discogs returned an unsupported image type");
+    }
+
+    const data = Buffer.from(await response.arrayBuffer());
+
+    if (data.length === 0 || data.length > MAX_IMAGE_BYTES) {
+      throw new ExternalServiceError("Discogs returned an empty or too large image");
+    }
+
+    return { data, contentType };
   }
 
   private async request(path: string, allowNotFound = false): Promise<unknown> {

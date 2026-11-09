@@ -1,4 +1,4 @@
-import { colorsTuple, createTheme } from "@mantine/core";
+import { colorsTuple, createTheme, type CSSVariablesResolver } from "@mantine/core";
 import camoColors from "./camo-colors.json";
 
 /**
@@ -50,3 +50,15 @@ export const theme = createTheme({
 
 /** Miniatura płyty na listach (okładka albo label), w pikselach. */
 export const THUMB_SIZE = 91;
+
+/**
+ * Kolory moro jako zmienne CSS (`--camo-charcoal`, `--camo-dark-olive`, `--camo-olive`, `--camo-khaki`),
+ * z tego samego pliku co motyw i generator wzoru, żeby kolor zmieniało się w jednym miejscu.
+ */
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: Object.fromEntries(
+    Object.entries(camoColors).map(([name, hex]) => [`--${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, hex]),
+  ),
+  light: {},
+  dark: {},
+});

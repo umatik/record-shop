@@ -25,9 +25,9 @@ import type { PoolClient } from "pg";
 
 const storage = {
   save: jest.fn<Storage["save"]>(async (_file, filename) => filename),
+  copy: jest.fn<Storage["copy"]>(),
   delete: jest.fn<Storage["delete"]>(async () => undefined),
   exists: jest.fn<Storage["exists"]>(),
-  read: jest.fn<Storage["read"]>(),
 };
 
 const pendingUploads = {
@@ -123,6 +123,7 @@ describe("RecordLookupService", () => {
     discogs = {
       search: jest.fn<DiscogsClient["search"]>().mockResolvedValue([]),
       getRelease: jest.fn<DiscogsClient["getRelease"]>(),
+      downloadImage: jest.fn<DiscogsClient["downloadImage"]>(),
     };
     translator = { translate: jest.fn<ConditionNoteTranslator["translate"]>() };
     jest.clearAllMocks();
@@ -290,6 +291,44 @@ describe("RecordLookupService", () => {
     expect(await service.getReleaseDraft(999)).toBeNull();
   });
 
+  describe("getReleaseCover", () => {
+    const cover = { data: Buffer.from("jpg"), contentType: "image/jpeg" as const };
+
+    it("should download the primary image of the release", async () => {
+      discogs.getRelease.mockResolvedValue({
+        ...zuluRelease,
+        images: [
+          { type: "secondary", uri: "https://i.discogs.com/back.jpg" },
+          { type: "primary", uri: "https://i.discogs.com/front.jpg" },
+        ],
+      });
+      discogs.downloadImage.mockResolvedValue(cover);
+
+      expect(await service.getReleaseCover(34434571)).toBe(cover);
+      expect(discogs.downloadImage).toHaveBeenCalledWith("https://i.discogs.com/front.jpg");
+    });
+
+    it("should fall back to the first image without a primary one", async () => {
+      discogs.getRelease.mockResolvedValue({
+        ...zuluRelease,
+        images: [{ type: "secondary", uri: "https://i.discogs.com/back.jpg" }],
+      });
+      discogs.downloadImage.mockResolvedValue(cover);
+
+      await service.getReleaseCover(34434571);
+
+      expect(discogs.downloadImage).toHaveBeenCalledWith("https://i.discogs.com/back.jpg");
+    });
+
+    it("should return null when the release has no images or is unknown", async () => {
+      discogs.getRelease.mockResolvedValueOnce({ ...zuluRelease, images: [] }).mockResolvedValueOnce(null);
+
+      expect(await service.getReleaseCover(34434571)).toBeNull();
+      expect(await service.getReleaseCover(999)).toBeNull();
+      expect(discogs.downloadImage).not.toHaveBeenCalled();
+    });
+  });
+
   it("should keep the Polish condition note and add the translations", async () => {
     translator.translate.mockResolvedValue({
       en: "Light crackle on side B",
@@ -402,6 +441,13 @@ describe("mapReleaseToDraft", () => {
     });
 
     expect(draft.product.attributes.artists).toEqual(["Bunnington Judah", "Zulu Vibes"]);
+  });
+
+  it("should keep each preview link once", () => {
+    const uri = "https://www.youtube.com/watch?v=abc";
+    const draft = mapReleaseToDraft({ ...zuluRelease, videos: [{ uri }, { uri }] });
+
+    expect(draft.product.attributes.previewLinks).toEqual([uri]);
   });
 
   it("should produce product attributes that pass the vinyl schema", () => {

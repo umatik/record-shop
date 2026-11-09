@@ -6,20 +6,21 @@ export const LABEL_DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export type LabelDraftPhoto = {
   id: string;
   path: string;
-  contentType: "image/jpeg" | "image/png" | "image/webp";
+  contentType: string;
 };
 
 export type LabelDraft = {
   id: string;
   photos: LabelDraftPhoto[];
-  /** Ostatni wynik odczytu labelu, żeby po powrocie kreator otworzył się na właściwym kroku. */
-  result: unknown;
+  /** Stan kreatora z chwili zapisu (odczyt, kandydaci, dane płyty); API go nie interpretuje. */
+  state: unknown;
   createdAt: Date;
 };
 
 /**
- * Szkic z kreatora to grupa zdjęć labelu w `pending_uploads` ze wspólnym `draft_id`.
- * Zdjęcia zabiera `PendingUploadRepository.claim` przy zapisie płyty, więc szkic znika razem z nimi.
+ * Szkic z kreatora to grupa zdjęć labelu w `pending_uploads` ze wspólnym `draft_id`. Powstaje z oczekujących
+ * zdjęć z odczytu labelu, gdy kreator dojdzie do danych płyty. Zdjęcia zabiera `PendingUploadRepository.claim`
+ * przy zapisie płyty, więc szkic znika razem z nimi.
  */
 export interface LabelDraftRepository {
   /** Szkice od najnowszego; z `id` tylko ten jeden. */
@@ -28,14 +29,17 @@ export interface LabelDraftRepository {
   /** Blokuje szkic do końca transakcji (także taki, którego jeszcze nie ma) i zwraca jego zdjęcia. */
   lock(client: PoolClient, id: string): Promise<LabelDraftPhoto[]>;
 
-  deletePhotos(client: PoolClient, id: string): Promise<void>;
+  /**
+   * Dołącza do szkicu oczekujące zdjęcia spoza szkiców, nie starsze niż `maxAgeMs`, w podanej kolejności.
+   * Zwraca identyfikatory dołączonych; wywołujący sprawdza, czy są wszystkie.
+   */
+  attachPending(client: PoolClient, id: string, photoIds: string[], maxAgeMs: number): Promise<string[]>;
 
-  addPhoto(
-    client: PoolClient,
-    data: LabelDraftPhoto & { draftId: string; position: number; createdBy: number | null },
-  ): Promise<void>;
+  /** Ustawia kolejność zdjęć szkicu i zapisuje stan kreatora przy pierwszym z nich. */
+  saveState(client: PoolClient, id: string, photoIds: string[], state: unknown): Promise<void>;
 
-  saveResult(client: PoolClient, firstPhotoId: string, result: unknown): Promise<void>;
+  /** Usuwa podane zdjęcia szkicu (te, których kreator już nie używa). */
+  deletePhotos(client: PoolClient, id: string, photoIds: string[]): Promise<void>;
 
   /** Usuwa szkice, których najnowsze zdjęcie jest starsze niż `olderThan`, i zwraca zdjęcia do skasowania. */
   deleteAbandoned(client: PoolClient, olderThan: Date): Promise<LabelDraftPhoto[]>;

@@ -21,9 +21,6 @@ export default function LoginPage() {
           <Title id="login-title" order={2}>
             Panel sklepu
           </Title>
-          <Text c="black" fz="sm">
-            Zaloguj się kontem z dostępem do produktów
-          </Text>
         </Stack>
         <Suspense>
           <LoginForm />

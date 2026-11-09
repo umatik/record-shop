@@ -117,6 +117,20 @@ export class ProductVariantMediaPostgresRepository implements ProductVariantMedi
     sortOrder: number,
     isPrimary: boolean,
   ): Promise<ProductVariantMedia | null> {
+    if (isPrimary) {
+      // Wariant ma najwyżej jedno główne zdjęcie (unikalny indeks), więc najpierw zdejmujemy poprzednie.
+      await client.query(
+        `
+          UPDATE product_variant_media
+          SET is_primary = FALSE, updated_at = CURRENT_TIMESTAMP
+          WHERE is_primary = TRUE
+            AND id <> $1
+            AND product_variant_id = (SELECT product_variant_id FROM product_variant_media WHERE id = $1)
+        `,
+        [mediaId],
+      );
+    }
+
     const result = await client.query<ProductVariantMedia>(
       `
         UPDATE product_variant_media

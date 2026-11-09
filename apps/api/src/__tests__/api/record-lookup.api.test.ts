@@ -135,6 +135,48 @@ describe("Record lookup API", () => {
     expect(valid.status).toBe(503);
   });
 
+  describe("Discogs cover of a variant", () => {
+    it("should require the products:update permission", async () => {
+      const token = await loginAsUser();
+
+      const response = await request(app)
+        .post("/products/1/variants/1/discogs-cover")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should answer 404 for a variant of another product", async () => {
+      const token = await loginAsAdmin();
+
+      const response = await request(app)
+        .post("/products/2/variants/1/discogs-cover")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(404);
+    });
+
+    it("should answer 400 for a variant without a Discogs release", async () => {
+      const token = await loginAsAdmin();
+
+      const response = await request(app)
+        .post("/products/1/variants/2/discogs-cover")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should ask Discogs for a variant with a release (503 in tests)", async () => {
+      const token = await loginAsAdmin();
+
+      const response = await request(app)
+        .post("/products/1/variants/1/discogs-cover")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(503);
+    });
+  });
+
   it("should not break the product routes", async () => {
     const response = await request(app).get("/products/1");
 
@@ -239,6 +281,52 @@ describe("Record lookup API", () => {
           matchingVariantIds: [],
         }),
       ]);
+    });
+
+    describe("another release of the same recording", () => {
+      const createIjahman = async () => {
+        const response = await request(app)
+          .post("/products")
+          .set("Authorization", `Bearer ${await loginAsAdmin()}`)
+          .send({
+            type: "vinyl",
+            title: "Moulding / Africa",
+            attributes: { artists: ["Ijahman Levi"], discogsMasterId: 98765, discogsArtistIds: [4321] },
+            variants: [{ priceEur: 100, attributes: { format: '12"', mediaCondition: "VG", sleeveCondition: "generic" } }],
+          });
+        expect(response.status).toBe(201);
+        return response.body.product.id as number;
+      };
+
+      it("should find it by the Discogs master release", async () => {
+        const productId = await createIjahman();
+
+        const response = await findExisting("discogsMasterId=98765");
+
+        expect(response.body.existingProducts).toEqual([
+          expect.objectContaining({ productId, matchedBy: ["discogs_master"] }),
+        ]);
+      });
+
+      it("should find it by side A of the title and the artist name without Discogs suffixes", async () => {
+        const productId = await createIjahman();
+
+        const response = await findExisting("title=Moulding&artist=I%20Jahman%20Levi%20(2)");
+
+        expect(response.body.existingProducts).toEqual([
+          expect.objectContaining({ productId, matchedBy: ["title_artist"] }),
+        ]);
+      });
+
+      it("should find it by the Discogs artist id when the name differs", async () => {
+        const productId = await createIjahman();
+
+        const response = await findExisting("title=Moulding&artist=I%20Jahman*&discogsArtistId=4321");
+
+        expect(response.body.existingProducts).toEqual([
+          expect.objectContaining({ productId, matchedBy: ["title_artist"] }),
+        ]);
+      });
     });
 
     it("should list the strongest match first and combine reasons", async () => {

@@ -1,6 +1,7 @@
 import { toLoggableError } from "@/errors/loggable-error.js";
 import type {
   DiscogsClient,
+  DiscogsImage,
   DiscogsRelease,
   DiscogsSearchParams,
   DiscogsSearchResult,
@@ -46,6 +47,8 @@ export type ReleaseDraft = {
       artists: string[];
       tracklist: { position?: string; title: string; artists?: string[]; duration?: string }[];
       previewLinks: string[];
+      discogsMasterId?: number;
+      discogsArtistIds?: number[];
     };
   };
   variant: {
@@ -138,10 +141,6 @@ export class RecordLookupService {
     // i nadal podepnie to zdjęcie do wariantu.
     const photoUploadIds = await this.savePendingPhotos(images, userId);
 
-    return this.readLabelPhotos(images, photoUploadIds);
-  }
-
-  async readLabelPhotos(images: LabelImage[], photoUploadIds: string[]) {
     try {
       const labelReader = this.require(await this.integrations.getLabelReader(), "Claude");
       const discogs = this.require(await this.integrations.getDiscogs(), "Discogs");
@@ -176,6 +175,19 @@ export class RecordLookupService {
     const release = await discogs.getRelease(releaseId);
 
     return release ? mapReleaseToDraft(release) : null;
+  }
+
+  /**
+   * Okładka wydania z Discogs (zdjęcie „primary”, a bez niego pierwsze). `null`, gdy Discogs nie zna
+   * wydania albo nie udostępnia jego zdjęć.
+   */
+  async getReleaseCover(releaseId: number): Promise<DiscogsImage | null> {
+    const discogs = this.require(await this.integrations.getDiscogs(), "Discogs");
+    const release = await discogs.getRelease(releaseId);
+    const images = release?.images?.filter((image) => !isPlaceholderImage(image.uri)) ?? [];
+    const cover = images.find((image) => image.type === "primary") ?? images[0];
+
+    return cover ? discogs.downloadImage(cover.uri) : null;
   }
 
   async translateConditionNote(polishText: string): Promise<TranslatedText> {
@@ -352,6 +364,14 @@ export const mapReleaseToDraft = (release: DiscogsRelease): ReleaseDraft => {
     ),
   ];
 
+  const artistIds = [
+    ...new Set(
+      [...(release.artists ?? []), ...(release.tracklist ?? []).flatMap((track) => track.artists ?? [])]
+        .map((artist) => artist.id)
+        .filter((id): id is number => typeof id === "number" && id > 0),
+    ),
+  ].slice(0, 20);
+
   return {
     product: {
       type: "vinyl",
@@ -359,6 +379,8 @@ export const mapReleaseToDraft = (release: DiscogsRelease): ReleaseDraft => {
       description: description || null,
       attributes: {
         artists: artists.length > 0 ? artists : ["Unknown Artist"],
+        ...(release.master_id && release.master_id > 0 && { discogsMasterId: release.master_id }),
+        ...(artistIds.length > 0 && { discogsArtistIds: artistIds }),
         tracklist: (release.tracklist ?? [])
           .filter((track) => (track.type_ ?? "track") === "track" && track.title)
           .map((track) => ({
@@ -369,8 +391,8 @@ export const mapReleaseToDraft = (release: DiscogsRelease): ReleaseDraft => {
             }),
             ...(emptyToUndefined(track.duration) && { duration: track.duration!.trim() }),
           })),
-        previewLinks: (release.videos ?? [])
-          .map((video) => video.uri)
+        // Discogs potrafi podać ten sam film dwa razy; w produkcie każdy link raz.
+        previewLinks: [...new Set((release.videos ?? []).map((video) => video.uri))]
           .filter((uri) => /^https?:\/\//.test(uri))
           .slice(0, MAX_PREVIEW_LINKS),
       },

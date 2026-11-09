@@ -18,6 +18,9 @@ export type RecordDetails = {
     description: string | null;
     tracklist: ReleaseDraft["product"]["attributes"]["tracklist"];
     previewLinks: string[];
+    /** Do wykrywania tej samej płyty w innym wydaniu. */
+    discogsMasterId?: number;
+    discogsArtistIds?: number[];
     country?: string;
     pressing?: "reissue";
   };
@@ -64,6 +67,10 @@ export function mergeDraft(
         description: draft.product.description,
         tracklist: draft.product.attributes.tracklist,
         previewLinks: draft.product.attributes.previewLinks,
+        ...(draft.product.attributes.discogsMasterId && { discogsMasterId: draft.product.attributes.discogsMasterId }),
+        ...(draft.product.attributes.discogsArtistIds?.length && {
+          discogsArtistIds: draft.product.attributes.discogsArtistIds,
+        }),
         ...(v.country ? { country: v.country } : {}),
         ...(v.pressing ? { pressing: v.pressing } : {}),
       },

@@ -23,6 +23,9 @@ const vinylProductAttributes = z.strictObject({
     )
     .max(100)
     .default([]),
+  /** Z Discogs, do wykrywania tej samej płyty w innym wydaniu: master release i numery artystów. */
+  discogsMasterId: z.int().positive().optional(),
+  discogsArtistIds: z.array(z.int().positive()).max(20).optional(),
   /** Linki do odsłuchu (YouTube, Bandcamp…), tylko do osadzania. */
   previewLinks: z
     .array(z.url({ protocol: /^https?$/ }).max(2048))

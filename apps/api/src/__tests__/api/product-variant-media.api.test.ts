@@ -51,6 +51,27 @@ describe("Product Variant Media API", () => {
     );
   });
 
+  it("should move the primary flag to another photo of the variant", async () => {
+    const token = await getAdminToken();
+    const media = await request(app).get("/products/variants/1/media");
+    const primary = media.body.find((item: { isPrimary: boolean }) => item.isPrimary);
+    const other = media.body.find((item: { isPrimary: boolean; type: string }) => !item.isPrimary && item.type === "photo");
+
+    const response = await request(app)
+      .patch(`/products/media/${other.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ alt: other.alt, sortOrder: other.sortOrder, isPrimary: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body.isPrimary).toBe(true);
+
+    const after = await request(app).get("/products/variants/1/media");
+    const primaries = after.body.filter((item: { isPrimary: boolean }) => item.isPrimary);
+
+    expect(primaries.map((item: { id: number }) => item.id)).toEqual([other.id]);
+    expect(primary.id).not.toBe(other.id);
+  });
+
   it("should return 401 when uploading media without authentication", async () => {
     // Bez pliku: serwer odrzuca żądanie już po nagłówkach i zamyka połączenie, więc wysyłany jeszcze formularz
     // kończył się czasem błędem „write EPIPE” po stronie klienta zamiast odpowiedzią 401.

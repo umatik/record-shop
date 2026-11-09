@@ -3,10 +3,12 @@ import type { ProductController } from "@/controllers/product.controller.js";
 import { authenticationMiddleware } from "@/middleware/authentication.middleware.js";
 import { requirePermission } from "@/middleware/permission.middleware.js";
 import type { AuthorizationService } from "@/services/authorization.service.js";
+import type { Multer } from "multer";
 
 export const createProductRouter = (
   productController: ProductController,
   authorizationService: AuthorizationService,
+  upload: Multer,
 ) => {
   const router = Router();
 
@@ -388,6 +390,34 @@ export const createProductRouter = (
    *         description: Product not found
    */
   router.delete("/:id", ...can("products:delete"), productController.deleteProduct);
+
+  /**
+   * @openapi
+   * /products/{id}/photo:
+   *   put:
+   *     summary: Replace the main product photo
+   *     description: The wizard sets it from the first label photo; this replaces it. The old file is deleted.
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - $ref: '#/components/parameters/ProductId'
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required: [image]
+   *             properties:
+   *               image: { type: string, format: binary, description: JPEG, PNG or WebP }
+   *     responses:
+   *       200: { description: New photo path }
+   *       400: { description: No photo }
+   *       404: { description: Product not found }
+   *       415: { description: Unsupported photo type }
+   */
+  router.put("/:id/photo", ...can("products:update"), upload.single("image"), productController.replacePrimaryPhoto);
 
   /**
    * @openapi

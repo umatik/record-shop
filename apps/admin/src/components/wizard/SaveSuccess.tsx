@@ -37,15 +37,14 @@ const SaveSuccess = ({ result, recordName, onAddAnother }: SaveSuccessProps) => 
     <Button size="xl" fullWidth leftSection={<IconPlus size={26} aria-hidden="true" />} onClick={onAddAnother}>
       Dodaj kolejną płytę
     </Button>
-    <Button
-      component={Link}
-      href={result.addedVariant ? `/produkty/${result.productId}` : result.published ? "/produkty" : "/szkice"}
-      size="lg"
-      variant="default"
-      fullWidth
-    >
-      {result.addedVariant ? "Zobacz produkt" : result.published ? "Zobacz produkty" : "Zobacz szkice"}
+    <Button component={Link} href={`/produkty/${result.productId}`} size="lg" variant="default" fullWidth>
+      Zobacz produkt
     </Button>
+    {!result.addedVariant && (
+      <Button component={Link} href={result.published ? "/produkty" : "/szkice"} size="lg" variant="default" fullWidth>
+        {result.published ? "Zobacz produkty" : "Zobacz szkice"}
+      </Button>
+    )}
   </Stack>
 );
 
