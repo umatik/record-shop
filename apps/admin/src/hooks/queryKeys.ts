@@ -9,6 +9,7 @@ export const productKeys = {
   all: ["products"] as const,
   list: (status: ProductStatus, q: string) => [...productKeys.all, "list", status, q] as const,
   count: (status: ProductStatus) => [...productKeys.all, "count", status] as const,
+  detail: (productId: number) => [...productKeys.all, "detail", productId] as const,
 };
 
 export const orderKeys = {

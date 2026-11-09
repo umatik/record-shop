@@ -6,8 +6,8 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import ErrorState from "@/components/ui/ErrorState";
 import { useLabelLookup } from "@/hooks/useLookup";
 import type { LabelLookupResult } from "@/types/lookup";
-import PhotoPicker from "./PhotoPicker";
-import PhotoPreview from "./PhotoPreview";
+import PhotoPicker from "@/components/fields/PhotoPicker";
+import PhotoPreview from "@/components/fields/PhotoPreview";
 import StepTitle from "./StepTitle";
 
 const MAX_PHOTOS = 2;

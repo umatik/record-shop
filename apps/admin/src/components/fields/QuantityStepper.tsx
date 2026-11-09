@@ -5,16 +5,18 @@ import { count } from "@/lib/format";
 type QuantityStepperProps = {
   value: number;
   onChange: (value: number) => void;
+  /** Najmniejsza ilość; w kreatorze 1, przy edycji 0 (wyprzedane). */
+  min?: number;
 };
 
-/** Liczba sztuk dużymi przyciskami − i +, co najmniej 1. */
-const QuantityStepper = ({ value, onChange }: QuantityStepperProps) => (
+/** Liczba sztuk dużymi przyciskami − i +. */
+const QuantityStepper = ({ value, onChange, min = 1 }: QuantityStepperProps) => (
   <fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
     <Text component="legend" fw={800} fz="xxl" mb="xs" p={0}>
       Ilość
     </Text>
     <Group gap="md" wrap="nowrap">
-      <Button size="xl" variant="default" onClick={() => onChange(Math.max(1, value - 1))} aria-label="Mniej sztuk">
+      <Button size="xl" variant="default" onClick={() => onChange(Math.max(min, value - 1))} aria-label="Mniej sztuk">
         <IconMinus size={26} aria-hidden="true" />
       </Button>
       <Text component="output" fz="xxl" fw={700} w={64} ta="center" aria-live="polite">

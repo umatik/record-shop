@@ -43,7 +43,7 @@ const ProductsList = ({ status }: ProductsListProps) => {
 
   const renderProduct = (product: Product) => (
     <ListRow
-      href={`/${isDraft ? "szkice" : "produkty"}#${product.id}`}
+      href={`/produkty/${product.id}`}
       thumb={primaryPhoto(product)}
       title={productArtist(product) || product.title}
       subtitle={product.title}

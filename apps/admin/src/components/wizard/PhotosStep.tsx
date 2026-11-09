@@ -4,8 +4,8 @@ import { Button, SimpleGrid, Stack } from "@mantine/core";
 import { IconArrowRight } from "@tabler/icons-react";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import ErrorState from "@/components/ui/ErrorState";
-import PhotoPicker from "./PhotoPicker";
-import PhotoPreview from "./PhotoPreview";
+import PhotoPicker from "@/components/fields/PhotoPicker";
+import PhotoPreview from "@/components/fields/PhotoPreview";
 import StepTitle from "./StepTitle";
 
 const MAX_EXTRA_PHOTOS = 8;

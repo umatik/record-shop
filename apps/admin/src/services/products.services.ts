@@ -1,4 +1,13 @@
-import type { CreateProductInput, Product, ProductList, ProductListFilters, PublishWarning } from "@/types/product";
+import type {
+  CreateProductInput,
+  Product,
+  ProductDetail,
+  ProductList,
+  ProductListFilters,
+  PublishWarning,
+  UpdateProductInput,
+  UpdateVariantInput,
+} from "@/types/product";
 import { request, toQuery } from "./http";
 
 export function getProducts({ status, q, page, limit }: ProductListFilters) {
@@ -24,4 +33,33 @@ export function uploadVariantPhoto(variantId: number, file: File, sortOrder: num
   form.append("sortOrder", String(sortOrder));
   form.append("isPrimary", "false");
   return request(`/products/variants/${variantId}/media`, { method: "POST", form });
+}
+
+export function getProduct(productId: number) {
+  return request<ProductDetail>(`/products/manage/${productId}`);
+}
+
+export function updateProduct(productId: number, input: UpdateProductInput) {
+  return request<ProductDetail>(`/products/${productId}`, { method: "PATCH", json: input });
+}
+
+export async function unpublishProduct(productId: number) {
+  await request(`/products/${productId}/unpublish`, { method: "POST" });
+}
+
+export async function deleteProduct(productId: number) {
+  await request(`/products/${productId}`, { method: "DELETE" });
+}
+
+export function updateVariant(productId: number, variantId: number, input: UpdateVariantInput) {
+  return request(`/products/${productId}/variants/${variantId}`, { method: "PATCH", json: input });
+}
+
+/** Ostatniego wariantu opublikowanego produktu API nie usunie (409): wtedy usuwa się cały produkt. */
+export async function deleteVariant(productId: number, variantId: number) {
+  await request(`/products/${productId}/variants/${variantId}`, { method: "DELETE" });
+}
+
+export async function deleteMedia(mediaId: number) {
+  await request(`/products/media/${mediaId}`, { method: "DELETE" });
 }

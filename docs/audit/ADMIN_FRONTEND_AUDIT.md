@@ -209,3 +209,12 @@ cała strona jako komponent kliencki, wybór pacjenta po indeksie w tablicy.
 
 Pozostałe punkty listy (widok produktu, kreator, zapis idempotentny, duplikaty, walidacja, bezpieczeństwo, testy)
 nadal otwarte.
+
+**2026-11-09: widok produktu (punkt 1, krytyczne 1).**
+
+- `/produkty/{id}` dla płyt w sprzedaży i szkiców: status, ostrzeżenia, publikacja i wycofanie ze sprzedaży, dane
+  płyty (artyści, tytuł, opis), linki do odsłuchu, warianty (zdjęcia: dodawanie i usuwanie; edycja stanu, ceny i
+  ilości; usuwanie z obsługą 409 dla ostatniego wariantu płyty w sprzedaży), usuwanie produktu z potwierdzeniem.
+- Wspólne pola (stan, cena, ilość, zdjęcia) przeniesione do `components/fields`, słownik winyla do `lib/vinyl.ts`.
+- Jeszcze brak: dodawania nowego wariantu, zmiany zdjęcia głównego (API nie odznacza poprzedniego), edycji notatki
+  o stanie i tracklisty.

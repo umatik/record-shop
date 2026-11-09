@@ -3,11 +3,12 @@
 import { Button, Stack } from "@mantine/core";
 import { IconArrowRight } from "@tabler/icons-react";
 import { useState } from "react";
-import { conditionErrors, MEDIA_GRADES, SLEEVE_GRADES, toVariant, type ConditionForm } from "./condition";
+import { MEDIA_GRADES, SLEEVE_GRADES } from "@/lib/vinyl";
+import { conditionErrors, toVariant, type ConditionForm } from "./condition";
 import ConditionNoteField from "./ConditionNoteField";
-import GradePicker from "./GradePicker";
-import PriceField from "./PriceField";
-import QuantityStepper from "./QuantityStepper";
+import GradePicker from "@/components/fields/GradePicker";
+import PriceField from "@/components/fields/PriceField";
+import QuantityStepper from "@/components/fields/QuantityStepper";
 import StepTitle from "./StepTitle";
 
 type ConditionStepProps = {

@@ -3,6 +3,7 @@
 import { Anchor, Divider, Group, Image, Paper, Stack, Text, Title } from "@mantine/core";
 import { useFilePreview } from "@/hooks/useFilePreview";
 import { formatEur } from "@/lib/format";
+import { describeSleeve } from "@/lib/vinyl";
 import type { VariantInput } from "./condition";
 import type { RecordDetails } from "./details";
 
@@ -18,8 +19,6 @@ type SummaryItemProps = {
   value: string;
 };
 
-const SLEEVE_LABEL: Record<string, string> = { generic: "okładka firmowa", no_cover: "bez okładki" };
-
 const SummaryItem = ({ label, value }: SummaryItemProps) => (
   <Group justify="space-between" wrap="nowrap" align="flex-start" gap="md">
     <Text component="dt" c="dimmed" fz="lg">
@@ -34,7 +33,7 @@ const SummaryItem = ({ label, value }: SummaryItemProps) => (
 /** Karta z tym, co zostanie zapisane: okładka, płyta i lista definicji z danymi wariantu. */
 const RecordSummary = ({ details, variant, cover, photoCount }: RecordSummaryProps) => {
   const coverUrl = useFilePreview(cover);
-  const sleeve = SLEEVE_LABEL[variant.sleeveCondition] ?? `okładka ${variant.sleeveCondition}`;
+  const sleeve = describeSleeve(variant.sleeveCondition);
   const pressing = [details.format, details.speed && `${details.speed} RPM`, details.year].filter(Boolean).join(" · ");
 
   return (

@@ -2,15 +2,12 @@ import { Alert, Button, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { IconCheck, IconPlus } from "@tabler/icons-react";
 import Link from "next/link";
 import type { CreateRecordResult } from "@/hooks/useCreateRecord";
+import { describeWarning } from "@/lib/warnings";
 
 type SaveSuccessProps = {
   result: CreateRecordResult;
   recordName: string;
   onAddAnother: () => void;
-};
-
-const WARNING_LABEL: Record<string, string> = {
-  missing_preview: "Płyta nie ma odsłuchu. Dodaj link do YouTube albo Bandcamp przy edycji.",
 };
 
 /** Ekran po zapisie: potwierdzenie, ostrzeżenia z publikacji i co dalej. */
@@ -29,7 +26,7 @@ const SaveSuccess = ({ result, recordName, onAddAnother }: SaveSuccessProps) => 
     </Stack>
     {result.warnings.map((warning) => (
       <Alert key={warning} color="yellow" variant="light" fz="md">
-        {WARNING_LABEL[warning] ?? warning}
+        {describeWarning(warning)}
       </Alert>
     ))}
     {result.failedPhotos > 0 && (

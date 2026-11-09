@@ -1,5 +1,5 @@
 import { Button, SimpleGrid, Text } from "@mantine/core";
-import type { Grade } from "./condition";
+import type { Grade } from "@/lib/vinyl";
 
 type GradePickerProps<T extends string> = {
   legend: string;

@@ -30,6 +30,7 @@ export type Product = {
   type: string;
   title: string;
   slug: string;
+  description: string | null;
   isPublished: boolean;
   attributes: { artists?: string[]; previewLinks?: unknown[] } & Record<string, unknown>;
   createdAt: string;
@@ -65,3 +66,23 @@ export type CreateProductInput = {
 
 /** Ostrzeżenia z publikacji, np. `missing_preview` (brak odsłuchu); nie blokują. */
 export type PublishWarning = string;
+
+/** Produkt w panelu z ostrzeżeniami (np. `missing_preview`), także szkic. */
+export type ProductDetail = {
+  product: Product;
+  warnings: PublishWarning[];
+};
+
+/** `PATCH /products/:id`: `attributes` zastępują całe atrybuty produktu, więc trzeba wysłać komplet. */
+export type UpdateProductInput = {
+  title?: string;
+  description?: string | null;
+  attributes?: Record<string, unknown>;
+};
+
+/** `PATCH /products/:id/variants/:variantId`: `attributes` zastępują całe atrybuty wariantu. */
+export type UpdateVariantInput = {
+  priceEur?: number;
+  quantity?: number;
+  attributes?: Record<string, unknown>;
+};
