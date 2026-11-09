@@ -2,7 +2,9 @@ import type { Response } from "express";
 import { ProductNotFoundError } from "@/errors/product-not-found.error.js";
 import { UserNotFoundError } from "@/errors/user-not-found.error.js";
 import { InsufficientStockError } from "@/errors/insufficient-stock.error.js";
-import type { CreateOrderData } from "@/types/order.types.js";
+import { ORDER_STATUSES, type CreateOrderData } from "@/types/order.types.js";
+import { z } from "zod";
+import type { Request } from "express";
 import { OrderService } from "@/services/order.service.js";
 import { createOrderSchema } from "@/validators/order.validator.js";
 import { formatZodIssues } from "@/validators/helpers/zod.js";
@@ -183,4 +185,97 @@ export class OrderController {
 
     res.status(204).send();
   };
+
+  // ---- Obsługa zamówień w panelu (docs/sprzedaz.md) ----
+
+  getManagedOrders = async (req: Request, res: Response) => {
+    const parsed = managedOrdersQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ message: "Invalid query parameters", errors: formatZodIssues(parsed.error) });
+      return;
+    }
+
+    const { status, sort, page, limit } = parsed.data;
+    const { orders, total } = await this.orderService.getManagedOrders({
+      status: status === "all" ? undefined : status,
+      sort,
+      page,
+      limit,
+    });
+
+    res.status(200).json({ message: "Orders found", orders, pagination: createPagination(page, limit, total) });
+  };
+
+  getManagedOrder = async (req: Request, res: Response) => {
+    const orderId = parseId(req.params.id);
+
+    if (orderId === null) {
+      res.status(400).json({ message: "Invalid order id" });
+      return;
+    }
+
+    const order = await this.orderService.getManagedOrder(orderId);
+
+    if (!order) {
+      res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    res.status(200).json({ message: "Order found", order });
+  };
+
+  markOrderPaid = async (req: Request, res: Response) => {
+    const orderId = parseId(req.params.id);
+
+    if (orderId === null) {
+      res.status(400).json({ message: "Invalid order id" });
+      return;
+    }
+
+    const order = await this.orderService.markOrderPaid(orderId);
+
+    if (!order) {
+      res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    res.status(200).json({ message: "Order marked as paid", order });
+  };
+
+  cancelOrder = async (req: Request, res: Response) => {
+    const orderId = parseId(req.params.id);
+    const parsed = cancelOrderSchema.safeParse(req.body ?? {});
+
+    if (orderId === null) {
+      res.status(400).json({ message: "Invalid order id" });
+      return;
+    }
+
+    if (!parsed.success) {
+      res.status(400).json({ message: "Invalid cancellation", errors: formatZodIssues(parsed.error) });
+      return;
+    }
+
+    const order = await this.orderService.cancelOrder(orderId, parsed.data.reason);
+
+    if (!order) {
+      res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    res.status(200).json({ message: "Order cancelled", order });
+  };
 }
+
+const managedOrdersQuerySchema = z.object({
+  status: z.enum([...ORDER_STATUSES, "all"]).default("all"),
+  sort: z.enum(["newest", "oldest"]).default("newest"),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+/** Powód trafia do klienta, więc jest wymagany. */
+const cancelOrderSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(1000),
+});

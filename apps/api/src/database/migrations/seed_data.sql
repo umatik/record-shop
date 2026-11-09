@@ -49,7 +49,8 @@ VALUES (1, 'users:read'),
        (7, 'orders:read'),
        (8, 'orders:delete'),
        (9, 'products:publish'),
-       (10, 'settings:manage');
+       (10, 'settings:manage'),
+       (11, 'orders:manage');
 
 INSERT INTO role_permissions (role_id, permission_id)
 VALUES
@@ -68,7 +69,8 @@ VALUES
   (2, 7), -- orders:read
   (2, 8), -- orders:delete
   (2, 9), -- products:publish
-  (2, 10); -- settings:manage
+  (2, 10), -- settings:manage
+  (2, 11); -- orders:manage
 
 -- ============================================================
 -- PRODUCTS

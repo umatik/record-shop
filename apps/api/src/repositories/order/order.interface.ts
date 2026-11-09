@@ -2,8 +2,11 @@ import type { PoolClient } from "pg";
 import type {
   CreateOrderData,
   CreateOrderItemData,
+  ManagedOrder,
+  ManagedOrderFilters,
   Order,
   OrderDetails,
+  OrderStatus,
 } from "../../types/order.types.js";
 
 export interface OrderInterface {
@@ -38,4 +41,20 @@ export interface OrderInterface {
     orderId: number,
     userId?: number,
   ): Promise<boolean>;
+
+  // Obsługa zamówień w panelu.
+
+  countManaged(client: PoolClient, status?: OrderStatus): Promise<number>;
+
+  findManaged(client: PoolClient, filters: ManagedOrderFilters): Promise<ManagedOrder[]>;
+
+  findManagedById(client: PoolClient, orderId: number): Promise<ManagedOrder | null>;
+
+  /** Status zamówienia z blokadą wiersza do końca transakcji, `null` gdy nie istnieje. */
+  lockStatus(client: PoolClient, orderId: number): Promise<OrderStatus | null>;
+
+  markPaid(client: PoolClient, orderId: number): Promise<void>;
+
+  /** Anuluje zamówienie z powodem i zwraca płyty do sprzedaży. */
+  cancel(client: PoolClient, orderId: number, reason: string): Promise<void>;
 }

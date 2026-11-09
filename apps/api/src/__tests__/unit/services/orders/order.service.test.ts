@@ -32,6 +32,12 @@ describe("OrderService", () => {
       findById: jest.fn(),
       delete: jest.fn(),
       countAll: jest.fn(),
+      countManaged: jest.fn(),
+      findManaged: jest.fn(),
+      findManagedById: jest.fn(),
+      lockStatus: jest.fn(),
+      markPaid: jest.fn(),
+      cancel: jest.fn(),
     };
 
     mockPool = {
@@ -387,5 +393,44 @@ describe("OrderService", () => {
     expect(mockClient.query).toHaveBeenNthCalledWith(2, "ROLLBACK");
 
     expect(mockClient.release).toHaveBeenCalledTimes(1);
+  });
+
+  describe("order handling in the admin panel", () => {
+    it("should cancel a paid order with a reason and clear the product cache", async () => {
+      orderRepository.lockStatus.mockResolvedValue("paid");
+
+      await orderService.cancelOrder(7, "Płyta uszkodzona przy pakowaniu");
+
+      expect(orderRepository.cancel).toHaveBeenCalledWith(mockClient as unknown as PoolClient, 7, "Płyta uszkodzona przy pakowaniu");
+      expect(mockClient.query).toHaveBeenCalledWith("COMMIT");
+      expect(productCache.clear).toHaveBeenCalled();
+    });
+
+    it("should refuse to cancel a shipped order", async () => {
+      orderRepository.lockStatus.mockResolvedValue("shipped");
+
+      await expect(orderService.cancelOrder(7, "Za późno")).rejects.toMatchObject({ statusCode: 409 });
+
+      expect(orderRepository.cancel).not.toHaveBeenCalled();
+      expect(mockClient.query).toHaveBeenCalledWith("ROLLBACK");
+      expect(productCache.clear).not.toHaveBeenCalled();
+    });
+
+    it("should mark only a pending order as paid", async () => {
+      orderRepository.lockStatus.mockResolvedValueOnce("pending").mockResolvedValueOnce("paid");
+
+      await orderService.markOrderPaid(7);
+      await expect(orderService.markOrderPaid(7)).rejects.toMatchObject({ statusCode: 409 });
+
+      expect(orderRepository.markPaid).toHaveBeenCalledTimes(1);
+    });
+
+    it("should return null when the order does not exist", async () => {
+      orderRepository.lockStatus.mockResolvedValue(null);
+
+      await expect(orderService.cancelOrder(404, "x")).resolves.toBeNull();
+
+      expect(orderRepository.cancel).not.toHaveBeenCalled();
+    });
   });
 });

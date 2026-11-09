@@ -34,6 +34,104 @@ export const createOrderRouter = (
     orderController.getOrders,
   );
 
+  const canManage = [authenticationMiddleware, requirePermission(authorizationService, "orders:manage")];
+
+  /**
+   * @openapi
+   * /orders/manage:
+   *   get:
+   *     tags: [Orders – admin panel]
+   *     summary: Orders for the admin panel with buyer, items and totals
+   *     description: >-
+   *       The dashboard lists paid orders to ship, oldest first (`status=paid&sort=oldest`). Each order has the
+   *       buyer's contact details, items with the variant's primary photo path and `totalEur` in euro cents.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: query, name: status, schema: { type: string, enum: [all, pending, paid, shipped, delivered, cancelled], default: all } }
+   *       - { in: query, name: sort, schema: { type: string, enum: [newest, oldest], default: newest } }
+   *       - { in: query, name: page, schema: { type: integer, default: 1 } }
+   *       - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
+   *     responses:
+   *       200:
+   *         description: "`orders` and `pagination`"
+   *       400:
+   *         description: Invalid query parameters
+   *       403:
+   *         description: Missing orders:manage
+   */
+  router.get("/manage", ...canManage, orderController.getManagedOrders);
+
+  /**
+   * @openapi
+   * /orders/manage/{id}:
+   *   get:
+   *     tags: [Orders – admin panel]
+   *     summary: One order for the admin panel (any buyer)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: path, name: id, required: true, schema: { type: integer } }
+   *     responses:
+   *       200:
+   *         description: Order found
+   *       404:
+   *         description: Order not found
+   */
+  router.get("/manage/:id", ...canManage, orderController.getManagedOrder);
+
+  /**
+   * @openapi
+   * /orders/{id}/mark-paid:
+   *   post:
+   *     tags: [Orders – admin panel]
+   *     summary: Confirm payment by hand (e.g. bank transfer) until Stripe handles payments
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: path, name: id, required: true, schema: { type: integer } }
+   *     responses:
+   *       200:
+   *         description: Order is paid
+   *       404:
+   *         description: Order not found
+   *       409:
+   *         description: Order is not pending
+   */
+  router.post("/:id/mark-paid", ...canManage, orderController.markOrderPaid);
+
+  /**
+   * @openapi
+   * /orders/{id}/cancel:
+   *   post:
+   *     tags: [Orders – admin panel]
+   *     summary: Cancel a pending or paid order; its records go back on sale
+   *     description: The reason is meant for the buyer. Refunds come with Stripe.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: path, name: id, required: true, schema: { type: integer } }
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [reason]
+   *             properties:
+   *               reason: { type: string, maxLength: 1000 }
+   *     responses:
+   *       200:
+   *         description: Order cancelled
+   *       400:
+   *         description: Missing reason
+   *       404:
+   *         description: Order not found
+   *       409:
+   *         description: Order is already shipped, delivered or cancelled
+   */
+  router.post("/:id/cancel", ...canManage, orderController.cancelOrder);
+
   /**
    * @openapi
    * /orders:

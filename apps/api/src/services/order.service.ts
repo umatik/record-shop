@@ -1,9 +1,14 @@
 import { UserNotFoundError } from "@/errors/user-not-found.error.js";
 import type {
   CreateOrderData,
+  ManagedOrder,
+  ManagedOrderFilters,
   Order,
   OrderDetails,
+  OrderStatus,
 } from "../types/order.types.js";
+import { OrderStatusConflictError } from "@/errors/order-status-conflict.error.js";
+import type { PoolClient } from "pg";
 import type { OrderInterface } from "@/repositories/order/order.interface.js";
 import type { Cache } from "@/cache/cache.interface.js";
 import type { Database } from "@/database/database.interface.js";
@@ -121,6 +126,91 @@ export class OrderService {
       }
 
       return deleted;
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ---- Obsługa zamówień w panelu (docs/sprzedaz.md) ----
+
+  async getManagedOrders(filters: ManagedOrderFilters): Promise<{ orders: ManagedOrder[]; total: number }> {
+    const client = await this.pool.connect();
+
+    try {
+      const orders = await this.orderRepository.findManaged(client, filters);
+      const total = await this.orderRepository.countManaged(client, filters.status);
+
+      return { orders, total };
+    } finally {
+      client.release();
+    }
+  }
+
+  async getManagedOrder(orderId: number): Promise<ManagedOrder | null> {
+    const client = await this.pool.connect();
+
+    try {
+      return await this.orderRepository.findManagedById(client, orderId);
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Ręczne potwierdzenie płatności (np. przelew), zanim płatności obsłuży Stripe. */
+  async markOrderPaid(orderId: number): Promise<ManagedOrder | null> {
+    return this.changeStatus(orderId, async (client, status) => {
+      if (status !== "pending") throw new OrderStatusConflictError("mark as paid", status);
+      await this.orderRepository.markPaid(client, orderId);
+    });
+  }
+
+  /**
+   * Anulowanie przed wysyłką: płyty wracają do sprzedaży, powód trafia do klienta.
+   * Zwrot pieniędzy za opłacone zamówienie dojdzie razem ze Stripe.
+   */
+  async cancelOrder(orderId: number, reason: string): Promise<ManagedOrder | null> {
+    return this.changeStatus(orderId, async (client, status) => {
+      if (status !== "pending" && status !== "paid") throw new OrderStatusConflictError("cancel", status);
+      await this.orderRepository.cancel(client, orderId, reason);
+    }, true);
+  }
+
+  /** Zmiana statusu w transakcji z blokadą zamówienia; `null`, gdy zamówienia nie ma. */
+  private async changeStatus(
+    orderId: number,
+    change: (client: PoolClient, status: OrderStatus) => Promise<void>,
+    affectsStock = false,
+  ): Promise<ManagedOrder | null> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const status = await this.orderRepository.lockStatus(client, orderId);
+
+      if (!status) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      await change(client, status);
+      const order = await this.orderRepository.findManagedById(client, orderId);
+
+      await client.query("COMMIT");
+
+      if (affectsStock) {
+        await this.productCache.clear();
+      }
+
+      return order;
     } catch (error) {
       try {
         await client.query("ROLLBACK");
