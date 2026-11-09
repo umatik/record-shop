@@ -26,8 +26,12 @@ Ten plik to jedno miejsce do aktualizacji. Gdy coś zostanie zrobione, odhaczać
 
 ## 3. Paleta kolorów panelu (druga sesja, niezakomitowana)
 
-- [ ] Zakomitować `apps/admin/src/lib/admin-palette.ts`, `theme.ts` i pliki `docs/admin-palette.*`.
-      Commit pulpitu (`663de5c`) i historii używa nazw `danger`, `warning`, `success` z tej palety.
+- [ ] **Sprawdzić paletę:** kolory statusów i akcji w całym panelu (`danger`, `warning`, `success`, oliwkowy
+      kolor główny `camoOlive`), kontrast tekstu na jasnym tle, wygląd na telefonie i w ciemnym motywie.
+- [ ] Zakomitować `apps/admin/src/lib/admin-palette.ts`, `theme.ts`, `globals.css`, pozostałe komponenty
+      z niezakomitowanymi zmianami kolorów i pliki `docs/admin-palette.*`.
+      Commity pulpitu (`663de5c`), historii zamówień (`a29db0e`) i eksportu (`c83ad55`) używają już nazw
+      `danger`, `warning`, `success` z tej palety, więc bez niej panel ma błędne kolory tych miejsc.
 
 ## 4. Sklep i API
 
