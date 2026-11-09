@@ -27,8 +27,9 @@ const LoginForm = () => {
     setLoading(false);
   }
 
+  // Chrome na iOS dopisuje formularzowi i polom atrybut __gchrome_uniqueid przed hydracją, co Next zgłasza jako błąd.
   return (
-    <form onSubmit={onSubmit} aria-label="Logowanie">
+    <form onSubmit={onSubmit} aria-label="Logowanie" suppressHydrationWarning>
       <Stack>
         {expired && !error && (
           <Alert color="yellow" variant="light">
@@ -40,8 +41,23 @@ const LoginForm = () => {
             {error}
           </Alert>
         )}
-        <TextInput name="email" type="email" label="E-mail" autoComplete="username" required withAsterisk={false} />
-        <PasswordInput name="password" label="Hasło" autoComplete="current-password" required withAsterisk={false} />
+        <TextInput
+          name="email"
+          type="email"
+          label="E-mail"
+          autoComplete="username"
+          required
+          withAsterisk={false}
+          suppressHydrationWarning
+        />
+        <PasswordInput
+          name="password"
+          label="Hasło"
+          autoComplete="current-password"
+          required
+          withAsterisk={false}
+          suppressHydrationWarning
+        />
         <Button type="submit" loading={loading} fullWidth>
           Zaloguj
         </Button>

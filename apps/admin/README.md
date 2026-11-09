@@ -18,6 +18,16 @@ pnpm dev:admin          # panel na http://localhost:3001
 Adres API dla serwera panelu ustawia `API_URL` (wzór w `.env.example`, domyślnie `http://localhost:3000`).
 Logowanie kontem z uprawnieniami `products:*`; w danych startowych to `bob@example.com`.
 
+### Test na telefonie
+
+Telefon w tej samej sieci Wi-Fi otwiera panel pod adresem komputera, np. `http://192.168.18.104:3001`.
+
+- Next w trybie dev blokuje skrypty `/_next` dla obcych hostów; `allowedDevOrigins` w `next.config.ts` wpuszcza
+  adresy `192.168.*.*`. Bez tego strona się wyświetla, ale bez JavaScriptu (nie działa logowanie ani przyciski).
+  Inna podsieć (np. `10.0.*.*`) wymaga dopisania jej tam.
+- Chrome na iOS dopisuje polom formularza atrybut `__gchrome_uniqueid` przed hydracją, więc formularz logowania ma
+  `suppressHydrationWarning`. Ten sam błąd hydracji w innym formularzu leczy się tak samo.
+
 ## Skrypty
 
 | Polecenie           | Co robi                      |
