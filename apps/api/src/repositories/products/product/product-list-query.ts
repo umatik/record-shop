@@ -90,6 +90,10 @@ export const buildProductWhere = (
     )`);
   }
 
+  if (query.ready) {
+    conditions.push(READY_TO_PUBLISH);
+  }
+
   if (query.q !== undefined) {
     const pattern = param(`%${escapeLike(query.q)}%`);
 
@@ -111,6 +115,38 @@ export const buildProductWhere = (
 
   return { sql: conditions.join("\n  AND "), values };
 };
+
+/**
+ * Produkt, któremu nic nie brakuje do publikacji: ma wariant, zdjęcie (główne albo któregoś wariantu),
+ * a płyta także odsłuch. To samo co puste podpowiedzi szkicu w panelu (`draftHints` w `apps/admin`),
+ * tylko liczone w bazie, żeby licznik „gotowe” obejmował wszystkie szkice. Brak odsłuchu nie blokuje publikacji.
+ */
+const READY_TO_PUBLISH = `(
+    EXISTS (
+      SELECT 1
+      FROM product_variants pv
+      WHERE pv.product_id = p.id
+        AND pv.is_deleted = FALSE
+    )
+    AND (
+      COALESCE(p.primary_photo_url, '') <> ''
+      OR EXISTS (
+        SELECT 1
+        FROM product_variant_media m
+               JOIN product_variants pv ON pv.id = m.product_variant_id
+        WHERE pv.product_id = p.id
+          AND pv.is_deleted = FALSE
+          AND m.type = 'photo'
+      )
+    )
+    AND (
+      p.type <> 'vinyl'
+      OR (
+        jsonb_typeof(p.attributes -> 'previewLinks') = 'array'
+        AND p.attributes -> 'previewLinks' <> '[]'::jsonb
+      )
+    )
+  )`;
 
 /** Kolumny pomocnicze do sortowania, liczone w podzapytaniu listy. */
 export const SORT_COLUMNS = `

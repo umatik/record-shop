@@ -5,9 +5,18 @@ zamówienia do wysłania. Ten plik zbiera decyzje i kolejność prac. Szczegół
 
 ## Decyzje
 
-- **Pulpit = „Do wysłania”.** Opłacone zamówienia, najstarsze na górze, z płytą, kupującym, kwotą i liczbą dni
-  oczekiwania. Pod spodem, tylko gdy coś w nich jest: „Czeka na płatność” i „Wiadomości bez odpowiedzi”.
-  Pusty stan: „Nic do wysłania”.
+- **Pulpit** (od 2026-11-09 według `docs/pulpit-claude.md`, wcześniej sama lista „Do wysłania”). Od góry:
+  cztery kafelki (do wysłania, opłacone produkty, sprzedane sztuki, szkice), kolejka **„Do wysłania”**,
+  „Wymaga uwagi”, wykres sprzedaży i pasek stanu magazynu.
+  - „Do wysłania” zostaje najważniejszą sekcją: opłacone zamówienia od najdłużej czekających **od zapłaty**
+    (`sort=paid_oldest`), z płytą, kupującym, kwotą i liczbą dni oczekiwania. Widać 2, resztę odsłania
+    „Pokaż wszystkie”. Pusty stan: „Nic do wysłania”.
+  - „Wymaga uwagi” pokazuje się tylko, gdy coś w niej jest: zamówienia czekające na płatność (rozwijana lista)
+    i szkice gotowe do publikacji (link do `/szkice?gotowe=1`). „Wiadomości bez odpowiedzi” dojdą z wiadomościami.
+  - Okres (30 albo 7 dni, czas polski) zmienia tylko sprzedaż: zamówienia `paid`, `shipped` i `delivered`
+    z `paid_at` w okresie, wartość z cen z chwili zakupu. Reszta pulpitu to stan na teraz.
+  - Liczby liczy API: `GET /orders/manage/summary?days=`, a dla płyt `GET /products/manage` z filtrami
+    `ready=true` (gotowe szkice) i `available=true` (stan magazynu, ten sam zbiór co `/produkty?dostepne=1`).
 - **Widok zamówienia:** kupujący (imię, e-mail, telefon, adres albo paczkomat), płyty ze zdjęciem i stanem,
   kwota, status płatności, historia zmian. Przyciski:
   - **Wyślij** (dawniej „Sprzedaj”): otwiera ustawienia przesyłki. Sprzedaż dokonuje się przy płatności.

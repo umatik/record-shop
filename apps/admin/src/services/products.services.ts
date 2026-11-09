@@ -12,8 +12,9 @@ import type {
 } from "@/types/product";
 import { request, toQuery } from "./http";
 
-export function getProducts({ status, q, page, limit }: ProductListFilters) {
-  return request<ProductList>(`/products/manage?${toQuery({ status, q, page, limit, sort: "newest" })}`);
+export function getProducts({ status, q, page, limit, available, ready }: ProductListFilters) {
+  const scope = { available: available ? "true" : undefined, ready: ready ? "true" : undefined };
+  return request<ProductList>(`/products/manage?${toQuery({ status, q, page, limit, sort: "newest", ...scope })}`);
 }
 
 export async function createProduct(input: CreateProductInput) {

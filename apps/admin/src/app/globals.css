@@ -53,3 +53,69 @@
 input[type="search"]::-webkit-search-cancel-button {
   appearance: none;
 }
+
+/* Liczby w kolumnach i licznikach: cyfry równej szerokości, żeby kwoty nie skakały przy zmianie. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kafelek podsumowania na pulpicie: jedyne obramowane pola na tej stronie. */
+.dashboard-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+}
+
+.dashboard-tile:hover,
+.dashboard-row:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.dashboard-row {
+  border-radius: var(--mantine-radius-sm);
+}
+
+/* Sekcja, do której przewija kafelek: zostaje pod przyklejonym nagłówkiem (56 px) z odstępem. */
+.dashboard-anchor {
+  scroll-margin-top: 72px;
+}
+
+/* Pole słupków wykresu sprzedaży z liniami pomocniczymi na górze, w połowie i na dole. */
+.sales-plot {
+  display: flex;
+  gap: 10px;
+  background-image:
+    linear-gradient(var(--mantine-color-default-border), var(--mantine-color-default-border)),
+    linear-gradient(var(--mantine-color-default-border), var(--mantine-color-default-border)),
+    linear-gradient(var(--mantine-color-default-border), var(--mantine-color-default-border));
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position:
+    0 0,
+    0 63px,
+    0 126px;
+}
+
+.sales-bar {
+  width: 60%;
+  max-width: 60px;
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  background-color: var(--mantine-primary-color-filled);
+  transition: height 0.25s ease;
+}
+
+.sales-bar:hover,
+.sales-bar[aria-pressed="true"] {
+  background-color: var(--mantine-primary-color-filled-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sales-bar {
+    transition: none;
+  }
+}

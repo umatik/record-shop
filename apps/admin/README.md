@@ -52,10 +52,11 @@ src/
   components/
     layout/         szkielet: nagłówek, menu boczne i dolne
     records/        listy płyt (wiersz, miniatura, cena, plakietki szkicu)
-    orders/         pulpit „Do wysłania” i widok zamówienia
+    dashboard/      pulpit: kafelki, kolejka wysyłek, „Wymaga uwagi”, wykres sprzedaży, stan magazynu
+    orders/         wiersz zamówienia i widok zamówienia
     wizard/         kreator „Dodaj płytę” (kroki + logika w details.ts, condition.ts, recordInput.ts)
     ui/             stany ładowania, błędu i pusty, tytuł strony
-  lib/            motyw (tokeny), formatowanie, zmniejszanie zdjęć
+  lib/            motyw (tokeny), formatowanie, słupki wykresu sprzedaży (sales.ts), zmniejszanie zdjęć
 ```
 
 ## Konwencje

@@ -50,6 +50,11 @@ export const updateProductSchema = z
 const queryText = z.string().trim().min(1).max(255).optional();
 const queryPrice = z.coerce.number().int().min(0).max(99_999_999).optional();
 
+const queryFlag = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true")
+  .optional();
+
 /** Filtry listy produktów (query string). Paginację sprawdza osobno `isValidPagination`. */
 export const productListFiltersSchema = z.object({
   type: queryText,
@@ -59,10 +64,8 @@ export const productListFiltersSchema = z.object({
   label: queryText,
   priceMinEur: queryPrice,
   priceMaxEur: queryPrice,
-  available: z
-    .enum(["true", "false"])
-    .transform((value) => value === "true")
-    .optional(),
+  available: queryFlag,
+  ready: queryFlag,
   q: queryText,
   sort: z.enum(PRODUCT_SORTS).default("newest"),
 });

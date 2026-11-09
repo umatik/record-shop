@@ -6,6 +6,8 @@ import type {
   Order,
   OrderDetails,
   OrderStatus,
+  OrderSummary,
+  SalesPeriod,
 } from "../types/order.types.js";
 import { OrderStatusConflictError } from "@/errors/order-status-conflict.error.js";
 import type { PoolClient } from "pg";
@@ -159,6 +161,38 @@ export class OrderService {
 
     try {
       return await this.orderRepository.findManagedById(client, orderId);
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Liczby pulpitu: bieżąca kolejka i opłacona sprzedaż w ostatnich `days` dniach. */
+  async getOrderSummary(days: SalesPeriod): Promise<OrderSummary> {
+    const client = await this.pool.connect();
+
+    try {
+      // Jeden obraz bazy, żeby kolejka i sprzedaż opisywały ten sam moment.
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+
+      try {
+        const queue = await this.orderRepository.summarizeQueue(client);
+        const daily = await this.orderRepository.salesByDay(client, days);
+        await client.query("COMMIT");
+
+        return {
+          ...queue,
+          sales: {
+            days,
+            totalEur: daily.reduce((sum, day) => sum + day.totalEur, 0),
+            orders: daily.reduce((sum, day) => sum + day.orders, 0),
+            units: daily.reduce((sum, day) => sum + day.units, 0),
+            daily,
+          },
+        };
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
     } finally {
       client.release();
     }

@@ -77,6 +77,8 @@ export type ProductListFilters = {
   priceMaxEur?: number | undefined;
   /** Tylko produkty, które mają wariant na stanie. */
   available?: boolean | undefined;
+  /** Tylko produkty, którym nic nie brakuje do publikacji (wariant, zdjęcie, odsłuch płyty). */
+  ready?: boolean | undefined;
   /** Wyszukiwanie po tytule, artystach, wytwórni i numerze katalogowym. */
   q?: string | undefined;
 };

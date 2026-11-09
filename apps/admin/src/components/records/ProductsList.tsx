@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, CloseButton, Group, SegmentedControl, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Chip, CloseButton, Group, SegmentedControl, Stack, Text, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconMusic, IconPackage, IconSearch, IconVinyl, type Icon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -29,6 +29,11 @@ type ProductsListProps = {
   view?: ProductsView;
   /** Fraza z adresu (`?szukaj=`): po powrocie z produktu lista pokazuje te same wyniki. */
   initialSearch?: string;
+  /**
+   * Zawężenie z adresu: opublikowane tylko na stanie (`?dostepne=1`), szkice tylko gotowe do publikacji
+   * (`?gotowe=1`). Pulpit linkuje do tak zawężonych list, a liczniki w tytule opisują wtedy ten sam zbiór.
+   */
+  narrowed?: boolean;
 };
 
 const VIEWS = [
@@ -46,7 +51,13 @@ const Stat = ({ icon: StatIcon, value, label }: { icon: Icon; value: number; lab
 
 const COPY: Record<
   ProductStatus,
-  { title: string; counter: (n: number, stock?: { copies?: number; presses?: number }) => ReactNode; empty: string }
+  {
+    title: string;
+    counter: (n: number, stock?: { copies?: number; presses?: number }) => ReactNode;
+    empty: string;
+    /** Zawężenie listy: parametr w adresie, podpis przełącznika i pusty stan po zawężeniu. */
+    narrow: { param: string; label: string; empty: string };
+  }
 > = {
   published: {
     title: "Produkty",
@@ -63,27 +74,32 @@ const COPY: Record<
       </Group>
     ),
     empty: "Nie ma jeszcze płyt w sprzedaży.",
+    narrow: { param: "dostepne", label: "Tylko na stanie", empty: "Żadna płyta nie jest teraz na stanie." },
   },
   draft: {
     title: "Szkice",
     counter: (n) => `${count(n, ["płyta", "płyty", "płyt"])} do dokończenia`,
     empty: "Wszystkie płyty są dokończone.",
+    narrow: { param: "gotowe", label: "Gotowe do publikacji", empty: "Żaden szkic nie jest jeszcze gotowy." },
   },
 };
 
 /** Lista płyt jednego statusu z wyszukiwaniem i przyciskiem „Pokaż więcej”. */
-const ProductsList = ({ status, view = "products", initialSearch = "" }: ProductsListProps) => {
+const ProductsList = ({ status, view = "products", initialSearch = "", narrowed = false }: ProductsListProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState(initialSearch);
   const searchRef = useRef<HTMLInputElement>(null);
   const [q] = useDebouncedValue(search.trim(), 300);
-  const list = useProductList(status, q);
+  const copy = COPY[status];
+  const isDraft = status === "draft";
+  const list = useProductList(status, q, narrowed ? (isDraft ? { ready: true } : { available: true }) : {});
 
-  /** Adres listy z widokiem i frazą; replace, żeby wpisywanie nie zapychało historii. */
-  const listHref = (nextView: string, phrase: string) => {
+  /** Adres listy z widokiem, frazą i zawężeniem; replace, żeby wpisywanie nie zapychało historii. */
+  const listHref = (nextView: string, phrase: string, nextNarrowed = narrowed) => {
     const params = new URLSearchParams();
     if (nextView === "variants") params.set("widok", "warianty");
+    if (nextNarrowed) params.set(copy.narrow.param, "1");
     if (phrase) params.set("szukaj", phrase);
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
@@ -94,11 +110,11 @@ const ProductsList = ({ status, view = "products", initialSearch = "" }: Product
     // Reagujemy tylko na zmianę frazy; reszta adresu idzie z tego samego renderu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
-  const copy = COPY[status];
-  const isDraft = status === "draft";
 
-  const drafts = useLabelDraftList(isDraft);
-  const labelDrafts = (isDraft ? (drafts.data ?? []) : [])
+  // Szkic kreatora nie jest jeszcze płytą, więc nie bywa „gotowy do publikacji”.
+  const showLabelDrafts = isDraft && !narrowed;
+  const drafts = useLabelDraftList(showLabelDrafts);
+  const labelDrafts = (showLabelDrafts ? (drafts.data ?? []) : [])
     .map((draft) => {
       const details = draft.state?.details;
       return {
@@ -108,7 +124,8 @@ const ProductsList = ({ status, view = "products", initialSearch = "" }: Product
       };
     })
     .filter((draft) => `${draft.artist} ${draft.title}`.toLowerCase().includes(q.toLowerCase()));
-  const total = list.total === undefined || (isDraft && !drafts.data) ? undefined : list.total + labelDrafts.length;
+  const total =
+    list.total === undefined || (showLabelDrafts && !drafts.data) ? undefined : list.total + labelDrafts.length;
 
   const clearSearch = () => {
     setSearch("");
@@ -117,7 +134,10 @@ const ProductsList = ({ status, view = "products", initialSearch = "" }: Product
 
   const changeView = (next: string) => router.replace(listHref(next, q), { scroll: false });
 
-  const variantRows = list.products.flatMap((product) => product.variants.map((variant) => ({ product, variant })));
+  // „Tylko na stanie” zwraca płyty z presem na stanie; wyprzedane presy tych płyt też odpadają.
+  const variantRows = list.products
+    .flatMap((product) => product.variants.map((variant) => ({ product, variant })))
+    .filter(({ variant }) => !narrowed || variant.quantity > 0);
 
   const renderVariant = ({ product, variant }: { product: Product; variant: Variant }) => (
     <ListRow
@@ -135,7 +155,7 @@ const ProductsList = ({ status, view = "products", initialSearch = "" }: Product
           <Text fw={700} fz="md">
             {formatEur(variant.priceEur)}
           </Text>
-          <Text fz="sm" fw={600} c={variant.quantity === 0 ? "red" : undefined}>
+          <Text fz="sm" fw={600} c={variant.quantity === 0 ? "danger" : undefined}>
             {variant.quantity === 0 ? "wyprzedane" : `${variant.quantity} szt.`}
           </Text>
         </Stack>
@@ -206,11 +226,21 @@ const ProductsList = ({ status, view = "products", initialSearch = "" }: Product
         />
       )}
 
+      <Chip
+        size="md"
+        checked={narrowed}
+        onChange={(checked) => router.replace(listHref(view, q, checked), { scroll: false })}
+      >
+        {copy.narrow.label}
+      </Chip>
+
       {list.isPending && <LoadingState label="Ładowanie płyt" height={300} />}
       {list.isError && <ErrorState message={list.error.message} />}
-      {total === 0 && <EmptyState title={q ? `Nic nie pasuje do „${q}”.` : copy.empty} />}
+      {total === 0 && (
+        <EmptyState title={q ? `Nic nie pasuje do „${q}”.` : narrowed ? copy.narrow.empty : copy.empty} />
+      )}
 
-      {isDraft && drafts.isError && <ErrorState message={drafts.error.message} />}
+      {showLabelDrafts && drafts.isError && <ErrorState message={drafts.error.message} />}
       {labelDrafts.length > 0 && (
         <RowList
           items={labelDrafts}

@@ -35,6 +35,8 @@ describe("OrderService", () => {
       countManaged: jest.fn(),
       findManaged: jest.fn(),
       findManagedById: jest.fn(),
+      summarizeQueue: jest.fn(),
+      salesByDay: jest.fn(),
       lockStatus: jest.fn(),
       markPaid: jest.fn(),
       cancel: jest.fn(),

@@ -1,11 +1,12 @@
-import type { Order, OrderList, OrderListFilters } from "@/types/order";
+import type { Order, OrderList, OrderListFilters, OrderSummary, SalesPeriod } from "@/types/order";
 import { request, toQuery } from "./http";
 
-/** Pulpit pokazuje najwyżej tyle zamówień w jednej sekcji; licznik i tak podaje pełną liczbę. */
-export const DASHBOARD_ORDER_LIMIT = 50;
+export function getOrders({ status, sort }: OrderListFilters, page: number, limit: number) {
+  return request<OrderList>(`/orders/manage?${toQuery({ status, sort, page, limit })}`);
+}
 
-export function getOrders({ status, sort }: OrderListFilters) {
-  return request<OrderList>(`/orders/manage?${toQuery({ status, sort, limit: DASHBOARD_ORDER_LIMIT })}`);
+export function getOrderSummary(days: SalesPeriod) {
+  return request<OrderSummary>(`/orders/manage/summary?${toQuery({ days })}`);
 }
 
 export async function getOrder(orderId: number) {

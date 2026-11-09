@@ -53,7 +53,9 @@ export const createProductRouter = (
    *       explode: true
    *       description: >-
    *         Filtry (każdy opcjonalny): type, artist, format, mediaCondition, label, priceMinEur, priceMaxEur
-   *         (eurocenty), available (true/false), q (tytuł, artyści, wytwórnia, nr katalogowy),
+   *         (eurocenty), available (true/false; w panelu podsumowanie `presses` liczy wtedy tylko warianty na
+   *         stanie), ready (true/false: nic nie brakuje do publikacji – wariant, zdjęcie, odsłuch płyty),
+   *         q (tytuł, artyści, wytwórnia, nr katalogowy),
    *         sort (newest, price_asc, price_desc, artist; domyślnie newest). Warunki wariantu dotyczą tego
    *         samego wariantu.
    *       schema:
@@ -67,6 +69,7 @@ export const createProductRouter = (
    *           priceMinEur: { type: integer }
    *           priceMaxEur: { type: integer }
    *           available: { type: boolean }
+   *           ready: { type: boolean }
    *           q: { type: string }
    *           sort: { type: string, enum: [newest, price_asc, price_desc, artist] }
    *   schemas:

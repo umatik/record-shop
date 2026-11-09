@@ -12,7 +12,7 @@ import type {
 export type StockSummary = {
   /** Suma sztuk we wszystkich wariantach. */
   copies: number;
-  /** Liczba wariantów (tłoczenie + stan), w panelu „presy”. */
+  /** Liczba wariantów (tłoczenie + stan), w panelu „presy”; z filtrem `available` tylko te na stanie. */
   presses: number;
 };
 

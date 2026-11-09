@@ -302,12 +302,14 @@ export class PostgresProductRepository implements ProductRepository {
     query: Omit<ProductListQuery, "page" | "limit" | "sort">,
   ): Promise<StockSummary> {
     const where = buildProductWhere(query);
+    // Z filtrem dostępności liczą się tylko warianty na stanie, tak jak na liście, którą opisuje podsumowanie.
+    const inStock = query.available ? "AND v.quantity > 0" : "";
 
     const result = await client.query(
       `
         SELECT COALESCE(SUM(v.quantity), 0) AS copies, COUNT(v.id) AS presses
         FROM products p
-        JOIN product_variants v ON v.product_id = p.id AND v.is_deleted = FALSE
+        JOIN product_variants v ON v.product_id = p.id AND v.is_deleted = FALSE ${inStock}
         WHERE ${where.sql}
       `,
       where.values,

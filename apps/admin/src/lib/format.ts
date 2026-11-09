@@ -8,9 +8,14 @@ const plural = new Intl.PluralRules("pl-PL");
 export const formatEur = (cents: number) => (cents % 100 === 0 ? eurWhole : eurCents).format(cents / 100);
 
 /** Polska odmiana: count(1, ["szkic", "szkice", "szkiców"]) → "1 szkic". */
-export function count(n: number, [one, few, many]: [string, string, string]): string {
+export function count(n: number, forms: [string, string, string]): string {
+  return `${n} ${pluralize(n, forms)}`;
+}
+
+/** Sama forma słowa dla liczby: pluralize(2, ["czeka", "czekają", "czeka"]) → "czekają". */
+export function pluralize(n: number, [one, few, many]: [string, string, string]): string {
   const form = plural.select(n);
-  return `${n} ${form === "one" ? one : form === "few" ? few : many}`;
+  return form === "one" ? one : form === "few" ? few : many;
 }
 
 export const productArtist = (product: Product) => product.attributes.artists?.join(", ") ?? "";

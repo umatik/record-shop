@@ -117,6 +117,29 @@ Wszystko w commicie `00e9a07` (wypchnięty na `main`).
   każdego zdjęcia `POST /products/lookup/photo` → `GET /products/lookup/releases/{id}` → `POST /products` (albo
   `POST /products/{id}/variants`, gdy `existingProducts` coś znajdzie); ceny w centach.
 
+### Sesja 2026-11-09 (noc): pulpit sklepu
+
+Wdrożenie `docs/pulpit-claude.md` (makieta: `docs/mockups/pulpit-rasbass.html`). Niezakomitowane.
+
+**API**
+
+- `GET /orders/manage/summary?days=7|30` (`orders:manage`): kolejka do wysłania (liczba, czas zapłaty najstarszego),
+  płatności oczekujące (liczba, wartość, najstarsze), sprzedaż dzień po dniu w czasie polskim (`paid`, `shipped`,
+  `delivered` po `paid_at`, wartość z pozycji zamówienia). Opłacone zamówienia bez `paid_at` są zgłaszane osobno
+  (`soldWithoutPaidAt`), a nie datowane po `created_at`.
+- `GET /orders/manage`: nowe `sort=paid_oldest` (po czasie zapłaty, remisy po ID); `oldest` dalej po dacie złożenia.
+- `GET /products/manage`: filtr `ready=true` (ma wariant, zdjęcie i odsłuch, jak puste `draftHints` w panelu);
+  z `available=true` podsumowanie `presses` liczy tylko warianty na stanie.
+- Testy: 524 (nowy `dashboard.api.test.ts`).
+
+**Panel**
+
+- `/` to `components/dashboard/Dashboard.tsx`: cztery kafelki 2 × 2, „Do wysłania” (2 wiersze + „Pokaż wszystkie”,
+  dociąga kolejne strony), „Wymaga uwagi”, wykres słupkowy (7 dni: dni; 30 dni: 7 + 7 + 7 + 9), pasek magazynu.
+  Części bez uprawnień (`orders:manage`, `products:update`) nie są pobierane ani pokazywane.
+- `/szkice?gotowe=1` i `/produkty?dostepne=1`: przełączniki „Gotowe do publikacji” i „Tylko na stanie”.
+- Wiersz zamówienia na telefonie ma kwotę pod opisem. Listy mają mniejsze fonty (18/16 px) i wyrównanie do góry.
+
 ### Dokumenty
 
 - `docs/sprzedaz.md`: plan etapu sprzedaży (pulpit, zamówienia, Stripe, InPost, kolejność prac).
@@ -149,6 +172,8 @@ Wszystko w commicie `00e9a07` (wypchnięty na `main`).
 8. Ustawienia w panelu (klucze Claude/Discogs, test połączenia) i ostrzeżenie o brakujących kluczach.
 9. **Lista produktów, dwa widoki:** przełącznik „Tjuny | Presy” zrobiony (`?widok=warianty`).
    Później filtry wariantów (stan, cena, ilość, np. 0 sztuk), z własnym endpointem listy wariantów w API.
+10. **Pulpit:** sprawdzić na prawdziwych zamówieniach (baza dev nie ma żadnych) i na telefonie; „gotowe” szkice
+    wymagają odsłuchu, tak jak plakietka na liście szkiców (do decyzji, czy brak odsłuchu ma je wykluczać).
 
 ## Uwagi praktyczne
 

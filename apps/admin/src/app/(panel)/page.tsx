@@ -1,6 +1,6 @@
-import OrdersDashboard from "@/components/orders/OrdersDashboard";
+import Dashboard from "@/components/dashboard/Dashboard";
 
-/** Pulpit: opłacone zamówienia do wysłania (docs/sprzedaz.md). */
+/** Pulpit sklepu: podsumowanie, kolejka wysyłek, sprawy wymagające uwagi, sprzedaż (docs/pulpit-claude.md). */
 export default function DashboardPage() {
-  return <OrdersDashboard />;
+  return <Dashboard />;
 }

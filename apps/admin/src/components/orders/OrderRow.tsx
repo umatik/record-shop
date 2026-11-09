@@ -1,4 +1,4 @@
-import { Stack, Text } from "@mantine/core";
+import { Group, Stack, Text } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import ListRow from "@/components/records/ListRow";
 import Price from "@/components/records/Price";
@@ -12,16 +12,19 @@ type OrderRowProps = {
 /** Ile opłacone zamówienie czeka na wysyłkę; od 3 dni na czerwono. */
 const WaitingTime = ({ paidAt }: { paidAt: string }) => {
   const days = daysSince(paidAt);
-  const color = days >= 3 ? "red.8" : days >= 1 ? "yellow.8" : "dimmed";
+  const color = days >= 3 ? "danger.8" : days >= 1 ? "warning.8" : "dimmed";
 
   return (
-    <Text fz="lg" fw={700} c={color}>
+    <Text fz="md" fw={700} c={color}>
       {days === 0 ? "opłacone dziś" : `czeka ${count(days, ["dzień", "dni", "dni"])}`}
     </Text>
   );
 };
 
-/** Wiersz zamówienia: płyta, kupujący, kwota i czas oczekiwania. */
+/**
+ * Wiersz zamówienia: płyta, kupujący, kwota i czas oczekiwania. Na telefonie kwota ze strzałką schodzi pod
+ * opis, żeby nazwisko i tytuł płyty miały całą szerokość; od tabletu stoi w prawej kolumnie.
+ */
 const OrderRow = ({ order }: OrderRowProps) => {
   const [first, ...rest] = order.items;
   const record = first ? [first.artists.join(", "), first.productTitle].filter(Boolean).join(" – ") : "";
@@ -33,11 +36,19 @@ const OrderRow = ({ order }: OrderRowProps) => {
       thumb={first?.photoUrl ? mediaSrc(first.photoUrl) : null}
       title={buyerName(order.buyer)}
       subtitle={record + more}
-      extra={order.paidAt ? <WaitingTime paidAt={order.paidAt} /> : undefined}
+      extra={
+        <>
+          {order.status === "paid" && order.paidAt && <WaitingTime paidAt={order.paidAt} />}
+          <Group hiddenFrom="sm" justify="space-between" wrap="nowrap">
+            <Price cents={order.totalEur} />
+            <IconChevronRight size={28} color="var(--mantine-color-dimmed)" aria-hidden="true" />
+          </Group>
+        </>
+      }
       aside={
-        <Stack gap={4} align="flex-end">
+        <Stack visibleFrom="sm" gap={4} align="flex-end">
           <Price cents={order.totalEur} />
-          <IconChevronRight size={28} aria-hidden="true" />
+          <IconChevronRight size={28} color="var(--mantine-color-dimmed)" aria-hidden="true" />
         </Stack>
       }
     />

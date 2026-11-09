@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { ProductNotFoundError } from "@/errors/product-not-found.error.js";
 import { UserNotFoundError } from "@/errors/user-not-found.error.js";
 import { InsufficientStockError } from "@/errors/insufficient-stock.error.js";
-import { ORDER_STATUSES, type CreateOrderData } from "@/types/order.types.js";
+import { MANAGED_ORDER_SORTS, ORDER_STATUSES, SALES_PERIODS, type CreateOrderData } from "@/types/order.types.js";
 import { z } from "zod";
 import type { Request } from "express";
 import { OrderService } from "@/services/order.service.js";
@@ -207,6 +207,19 @@ export class OrderController {
     res.status(200).json({ message: "Orders found", orders, pagination: createPagination(page, limit, total) });
   };
 
+  getOrderSummary = async (req: Request, res: Response) => {
+    const parsed = orderSummaryQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ message: "Invalid query parameters", errors: formatZodIssues(parsed.error) });
+      return;
+    }
+
+    const summary = await this.orderService.getOrderSummary(parsed.data.days);
+
+    res.status(200).json({ message: "Order summary found", ...summary });
+  };
+
   getManagedOrder = async (req: Request, res: Response) => {
     const orderId = parseId(req.params.id);
 
@@ -270,9 +283,16 @@ export class OrderController {
 
 const managedOrdersQuerySchema = z.object({
   status: z.enum([...ORDER_STATUSES, "all"]).default("all"),
-  sort: z.enum(["newest", "oldest"]).default("newest"),
+  sort: z.enum(MANAGED_ORDER_SORTS).default("newest"),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const orderSummaryQuerySchema = z.object({
+  days: z.coerce
+    .number()
+    .refine((value): value is (typeof SALES_PERIODS)[number] => SALES_PERIODS.some((period) => period === value))
+    .default(30),
 });
 
 /** Powód trafia do klienta, więc jest wymagany. */

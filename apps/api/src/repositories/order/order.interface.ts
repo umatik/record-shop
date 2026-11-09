@@ -6,7 +6,10 @@ import type {
   ManagedOrderFilters,
   Order,
   OrderDetails,
+  OrderQueueSummary,
   OrderStatus,
+  SalesDay,
+  SalesPeriod,
 } from "../../types/order.types.js";
 
 export interface OrderInterface {
@@ -49,6 +52,15 @@ export interface OrderInterface {
   findManaged(client: PoolClient, filters: ManagedOrderFilters): Promise<ManagedOrder[]>;
 
   findManagedById(client: PoolClient, orderId: number): Promise<ManagedOrder | null>;
+
+  /** Liczniki bieżącej pracy: do wysłania i czekające na płatność. */
+  summarizeQueue(client: PoolClient): Promise<OrderQueueSummary>;
+
+  /**
+   * Opłacona sprzedaż dzień po dniu w ostatnich `days` dniach (z dzisiejszym), w strefie Europe/Warsaw.
+   * Zwraca każdy dzień okresu, także bez sprzedaży.
+   */
+  salesByDay(client: PoolClient, days: SalesPeriod): Promise<SalesDay[]>;
 
   /** Status zamówienia z blokadą wiersza do końca transakcji, `null` gdy nie istnieje. */
   lockStatus(client: PoolClient, orderId: number): Promise<OrderStatus | null>;

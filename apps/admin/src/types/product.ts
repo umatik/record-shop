@@ -43,12 +43,23 @@ export type Product = {
 export type ProductList = {
   products: Product[];
   pagination: Pagination;
-  /** Sztuki na stanie i liczba presów we wszystkich pasujących płytach (tylko lista w panelu). */
+  /**
+   * Sztuki na stanie i liczba presów we wszystkich pasujących płytach (tylko lista w panelu).
+   * Z filtrem `available` presy to tylko te na stanie.
+   */
   copies?: number;
   presses?: number;
 };
 
-export type ProductListFilters = {
+/** Dodatkowe zawężenie listy w panelu. */
+export type ProductListScope = {
+  /** Tylko płyty z presem na stanie. */
+  available?: boolean;
+  /** Tylko płyty, którym nic nie brakuje do publikacji (jak puste `draftHints`). */
+  ready?: boolean;
+};
+
+export type ProductListFilters = ProductListScope & {
   status: ProductStatus;
   q?: string;
   page: number;

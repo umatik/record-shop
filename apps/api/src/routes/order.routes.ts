@@ -43,13 +43,14 @@ export const createOrderRouter = (
    *     tags: [Orders – admin panel]
    *     summary: Orders for the admin panel with buyer, items and totals
    *     description: >-
-   *       The dashboard lists paid orders to ship, oldest first (`status=paid&sort=oldest`). Each order has the
+   *       The dashboard lists paid orders to ship, longest waiting since payment first
+   *       (`status=paid&sort=paid_oldest`); `newest` and `oldest` sort by the order date. Each order has the
    *       buyer's contact details, items with the variant's primary photo path and `totalEur` in euro cents.
    *     security:
    *       - bearerAuth: []
    *     parameters:
    *       - { in: query, name: status, schema: { type: string, enum: [all, pending, paid, shipped, delivered, cancelled], default: all } }
-   *       - { in: query, name: sort, schema: { type: string, enum: [newest, oldest], default: newest } }
+   *       - { in: query, name: sort, schema: { type: string, enum: [newest, oldest, paid_oldest], default: newest } }
    *       - { in: query, name: page, schema: { type: integer, default: 1 } }
    *       - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
    *     responses:
@@ -61,6 +62,31 @@ export const createOrderRouter = (
    *         description: Missing orders:manage
    */
   router.get("/manage", ...canManage, orderController.getManagedOrders);
+
+  /**
+   * @openapi
+   * /orders/manage/summary:
+   *   get:
+   *     tags: [Orders – admin panel]
+   *     summary: Dashboard numbers – shipping queue, pending payments and paid sales per day
+   *     description: >-
+   *       `toShip`, `pending` and `soldWithoutPaidAt` describe the current state. `sales` covers orders that are
+   *       `paid`, `shipped` or `delivered` with `paid_at` in the last `days` days (today included), counted in
+   *       Europe/Warsaw. Values are product totals in euro cents taken from the order items (price at purchase ×
+   *       quantity). `sales.daily` has every day of the period, also days without sales.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - { in: query, name: days, schema: { type: integer, enum: [7, 30], default: 30 } }
+   *     responses:
+   *       200:
+   *         description: "`toShip`, `pending`, `soldWithoutPaidAt` and `sales`"
+   *       400:
+   *         description: Invalid query parameters
+   *       403:
+   *         description: Missing orders:manage
+   */
+  router.get("/manage/summary", ...canManage, orderController.getOrderSummary);
 
   /**
    * @openapi

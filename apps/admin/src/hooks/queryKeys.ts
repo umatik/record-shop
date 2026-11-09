@@ -1,5 +1,5 @@
-import type { OrderListFilters } from "@/types/order";
-import type { ProductStatus } from "@/types/product";
+import type { OrderListFilters, SalesPeriod } from "@/types/order";
+import type { ProductListScope, ProductStatus } from "@/types/product";
 
 /**
  * Wszystkie klucze zapytań w jednym miejscu. Unieważnianie po zapisie trafia w całe gałęzie
@@ -7,14 +7,17 @@ import type { ProductStatus } from "@/types/product";
  */
 export const productKeys = {
   all: ["products"] as const,
-  list: (status: ProductStatus, q: string) => [...productKeys.all, "list", status, q] as const,
-  count: (status: ProductStatus) => [...productKeys.all, "count", status] as const,
+  list: (status: ProductStatus, q: string, scope: ProductListScope = {}) =>
+    [...productKeys.all, "list", status, q, scope] as const,
+  count: (status: ProductStatus, scope: ProductListScope = {}) => [...productKeys.all, "count", status, scope] as const,
+  labelDrafts: () => [...productKeys.all, "label-drafts"] as const,
   detail: (productId: number) => [...productKeys.all, "detail", productId] as const,
 };
 
 export const orderKeys = {
   all: ["orders"] as const,
   list: (filters: OrderListFilters) => [...orderKeys.all, "list", filters] as const,
+  summary: (days: SalesPeriod) => [...orderKeys.all, "summary", days] as const,
   detail: (orderId: number) => [...orderKeys.all, "detail", orderId] as const,
 };
 

@@ -9,9 +9,13 @@ import type {
   Order,
   OrderDetails,
   OrderItem,
+  OrderQueueSummary,
   OrderRow,
   OrderStatus,
+  SalesDay,
+  SalesPeriod,
 } from "../../types/order.types.js";
+import { SOLD_STATUSES, type ManagedOrderSort } from "../../types/order.types.js";
 import { ProductNotFoundError } from "@/errors/product-not-found.error.js";
 import { InsufficientStockError } from "@/errors/insufficient-stock.error.js";
 
@@ -411,7 +415,7 @@ export class OrderPostgresRepository implements OrderInterface {
   }
 
   async findManaged(client: PoolClient, filters: ManagedOrderFilters): Promise<ManagedOrder[]> {
-    const direction = filters.sort === "oldest" ? "ASC" : "DESC";
+    const orderBy = MANAGED_ORDER_BY[filters.sort];
     const offset = (filters.page - 1) * filters.limit;
 
     const result = await client.query(
@@ -420,11 +424,11 @@ export class OrderPostgresRepository implements OrderInterface {
                       FROM orders
                       WHERE is_deleted = FALSE
                         AND ($1::TEXT IS NULL OR status = $1)
-                      ORDER BY created_at ${direction}, id ${direction}
+                      ORDER BY ${orderBy("")}
                       LIMIT $2 OFFSET $3)
         ${MANAGED_ORDER_SELECT}
         WHERE o.id IN (SELECT id FROM page)
-        ORDER BY o.created_at ${direction}, o.id ${direction}, oi.id
+        ORDER BY ${orderBy("o.")}, oi.id
       `,
       [filters.status ?? null, filters.limit, offset],
     );
@@ -444,6 +448,79 @@ export class OrderPostgresRepository implements OrderInterface {
     );
 
     return this.mapManagedRows(result.rows)[0] ?? null;
+  }
+
+  async summarizeQueue(client: PoolClient): Promise<OrderQueueSummary> {
+    // Wartość liczona w podzapytaniu na zamówienie: złączenie z pozycjami powieliłoby zamówienia w licznikach.
+    const result = await client.query(
+      `
+        SELECT COUNT(*) FILTER (WHERE o.status = 'paid')                           AS "toShip",
+               MIN(o.paid_at) FILTER (WHERE o.status = 'paid')                     AS "oldestPaidAt",
+               COUNT(*) FILTER (WHERE o.status = 'pending')                        AS "pending",
+               COALESCE(SUM(items.total) FILTER (WHERE o.status = 'pending'), 0)   AS "pendingTotal",
+               MIN(o.created_at) FILTER (WHERE o.status = 'pending')               AS "oldestCreatedAt",
+               COUNT(*) FILTER (WHERE o.status IN (${SOLD_STATUS_LIST})
+                                  AND o.paid_at IS NULL)                           AS "soldWithoutPaidAt"
+        FROM orders o
+               LEFT JOIN LATERAL (SELECT SUM(oi.price_eur * oi.quantity) AS total
+                                  FROM order_items oi
+                                  WHERE oi.order_id = o.id) items ON TRUE
+        WHERE o.is_deleted = FALSE
+      `,
+    );
+
+    const row = result.rows[0];
+
+    return {
+      toShip: { count: Number(row.toShip), oldestPaidAt: row.oldestPaidAt },
+      pending: {
+        count: Number(row.pending),
+        totalEur: Number(row.pendingTotal),
+        oldestCreatedAt: row.oldestCreatedAt,
+      },
+      soldWithoutPaidAt: Number(row.soldWithoutPaidAt),
+    };
+  }
+
+  async salesByDay(client: PoolClient, days: SalesPeriod): Promise<SalesDay[]> {
+    // Dni liczone w czasie lokalnym sklepu (`AT TIME ZONE` zna zmianę czasu, sztywne przesunięcie UTC nie).
+    // Okres: od początku dnia sprzed `days - 1` dni do teraz. Datą sprzedaży jest `paid_at`.
+    const result = await client.query(
+      `
+        WITH bounds AS (SELECT date_trunc('day', NOW() AT TIME ZONE '${SHOP_TIME_ZONE}') AS today),
+             period AS (SELECT generate_series(today - make_interval(days => $1::INT - 1), today, INTERVAL '1 day') AS day
+                        FROM bounds),
+             sold AS (SELECT o.id,
+                             date_trunc('day', o.paid_at AT TIME ZONE '${SHOP_TIME_ZONE}') AS day,
+                             items.total,
+                             items.units
+                      FROM orders o
+                             JOIN LATERAL (SELECT COALESCE(SUM(oi.price_eur * oi.quantity), 0) AS total,
+                                                  COALESCE(SUM(oi.quantity), 0)                AS units
+                                           FROM order_items oi
+                                           WHERE oi.order_id = o.id) items ON TRUE
+                      WHERE o.is_deleted = FALSE
+                        AND o.status IN (${SOLD_STATUS_LIST})
+                        AND o.paid_at >= (SELECT MIN(day) FROM period) AT TIME ZONE '${SHOP_TIME_ZONE}'
+                        AND o.paid_at <= NOW())
+        SELECT to_char(period.day, 'YYYY-MM-DD') AS "date",
+               COALESCE(SUM(sold.total), 0)      AS "totalEur",
+               COUNT(sold.id)                    AS "orders",
+               COALESCE(SUM(sold.units), 0)      AS "units"
+        FROM period
+               LEFT JOIN sold ON sold.day = period.day
+        GROUP BY period.day
+        ORDER BY period.day
+      `,
+      [days],
+    );
+
+    return result.rows.map((row) => ({
+      date: row.date,
+      totalEur: Number(row.totalEur),
+      orders: Number(row.orders),
+      units: Number(row.units),
+    }));
   }
 
   async lockStatus(client: PoolClient, orderId: number): Promise<OrderStatus | null> {
@@ -569,6 +646,18 @@ type ManagedOrderRow = {
   variantAttributes: Record<string, unknown>;
   artists: string[] | null;
   photoUrl: string | null;
+};
+
+/** Strefa czasowa sklepu: w niej liczą się dni sprzedaży. */
+const SHOP_TIME_ZONE = "Europe/Warsaw";
+
+const SOLD_STATUS_LIST = SOLD_STATUSES.map((status) => `'${status}'`).join(", ");
+
+/** ORDER BY listy panelu; `prefix` to alias tabeli zamówień z kropką. Remisy rozstrzyga ID. */
+const MANAGED_ORDER_BY: Record<ManagedOrderSort, (prefix: string) => string> = {
+  newest: (prefix) => `${prefix}created_at DESC, ${prefix}id DESC`,
+  oldest: (prefix) => `${prefix}created_at ASC, ${prefix}id ASC`,
+  paid_oldest: (prefix) => `${prefix}paid_at ASC NULLS LAST, ${prefix}id ASC`,
 };
 
 /** Zamówienie z kupującym, pozycjami i zdjęciem głównym wariantu; filtr i kolejność dokleja wywołujący. */
