@@ -1,6 +1,6 @@
 "use client";
 
-import { ActionIcon, Badge, Image, SimpleGrid, Stack } from "@mantine/core";
+import { ActionIcon, Badge, Group, Image, Loader, SimpleGrid, Stack } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import PhotoPicker from "@/components/fields/PhotoPicker";
@@ -59,7 +59,7 @@ const VariantPhotos = ({ variant }: VariantPhotosProps) => {
         </SimpleGrid>
       )}
 
-      {photos.length < MAX_PHOTOS && (
+      {!addPhotos.isPending && photos.length < MAX_PHOTOS && (
         <PhotoPicker
           remaining={MAX_PHOTOS - photos.length}
           cameraLabel="Zrób zdjęcie"
@@ -71,9 +71,10 @@ const VariantPhotos = ({ variant }: VariantPhotosProps) => {
         />
       )}
       {addPhotos.isPending && (
-        <p role="status" className="sr-only">
+        <Group role="status" gap="xs">
+          <Loader size="sm" aria-hidden="true" />
           Wgrywanie zdjęć…
-        </p>
+        </Group>
       )}
       {pickError && <ErrorState message={pickError} />}
       {error && <ErrorState message={error.message} />}

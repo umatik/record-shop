@@ -61,6 +61,12 @@ describe("LocalStorage", () => {
     expect(await storage.exists("missing.txt")).toBe(false);
   });
 
+  it("should read a saved file", async () => {
+    await storage.save(Buffer.from("label"), "products/photo/label.jpg", "image/jpeg");
+
+    expect((await storage.read("products/photo/label.jpg")).toString()).toBe("label");
+  });
+
   it("should delete a file", async () => {
     const content = Buffer.from("test");
 

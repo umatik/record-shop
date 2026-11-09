@@ -8,8 +8,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import LoadingState from "@/components/ui/LoadingState";
 import PageTitle from "@/components/ui/PageTitle";
-import { useProductList } from "@/hooks/useProducts";
-import { count, lowestPrice, primaryPhoto, productArtist } from "@/lib/format";
+import { useLabelDraftList, useProductList } from "@/hooks/useProducts";
+import { count, mediaSrc, lowestPrice, primaryPhoto, productArtist } from "@/lib/format";
 import type { Product, ProductStatus } from "@/types/product";
 import DraftBadges from "./DraftBadges";
 import ListRow from "./ListRow";
@@ -41,6 +41,15 @@ const ProductsList = ({ status }: ProductsListProps) => {
   const copy = COPY[status];
   const isDraft = status === "draft";
 
+  const drafts = useLabelDraftList(isDraft);
+  const labelDrafts = (isDraft ? (drafts.data ?? []) : [])
+    .map((draft) => {
+      const reading = draft.result?.reading;
+      return { ...draft, artist: reading?.artists.join(", ") ?? "", title: reading?.title || "Płyta do rozpoznania" };
+    })
+    .filter((draft) => `${draft.artist} ${draft.title}`.toLowerCase().includes(q.toLowerCase()));
+  const total = list.total === undefined || (isDraft && !drafts.data) ? undefined : list.total + labelDrafts.length;
+
   const renderProduct = (product: Product) => (
     <ListRow
       href={`/produkty/${product.id}`}
@@ -54,11 +63,7 @@ const ProductsList = ({ status }: ProductsListProps) => {
 
   return (
     <Stack component="section" aria-labelledby="products-title" gap="lg" maw={640} mx="auto">
-      <PageTitle
-        id="products-title"
-        title={copy.title}
-        aside={list.total !== undefined ? copy.counter(list.total) : undefined}
-      />
+      <PageTitle id="products-title" title={copy.title} aside={total !== undefined ? copy.counter(total) : undefined} />
 
       <TextInput
         type="search"
@@ -72,8 +77,24 @@ const ProductsList = ({ status }: ProductsListProps) => {
 
       {list.isPending && <LoadingState label="Ładowanie płyt" height={300} />}
       {list.isError && <ErrorState message={list.error.message} />}
-      {list.total === 0 && <EmptyState title={q ? `Nic nie pasuje do „${q}”.` : copy.empty} />}
+      {total === 0 && <EmptyState title={q ? `Nic nie pasuje do „${q}”.` : copy.empty} />}
 
+      {isDraft && drafts.isError && <ErrorState message={drafts.error.message} />}
+      {labelDrafts.length > 0 && (
+        <RowList
+          items={labelDrafts}
+          getKey={(draft) => draft.id}
+          label="Rozpoczęte w kreatorze"
+          renderItem={(draft) => (
+            <ListRow
+              href={`/dodaj?szkic=${draft.id}`}
+              title={draft.artist || draft.title}
+              subtitle={draft.artist ? draft.title : "Dokończ w kreatorze"}
+              thumb={draft.photos[0] ? mediaSrc(draft.photos[0].path) : null}
+            />
+          )}
+        />
+      )}
       <RowList items={list.products} getKey={(product) => product.id} renderItem={renderProduct} label={copy.title} />
 
       {list.hasNextPage && (

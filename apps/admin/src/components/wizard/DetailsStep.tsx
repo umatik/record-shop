@@ -14,6 +14,9 @@ type DetailsStepProps = {
   onChange: (patch: Partial<RecordDetails>) => void;
   fromLabel: FromLabel;
   existingProducts: ProductMatch[];
+  target: ProductMatch | null;
+  destination: number | "new" | null;
+  onDestination: (value: number | "new") => void;
   onNext: () => void;
 };
 
@@ -32,7 +35,16 @@ const SPEEDS = [
 ];
 
 /** Krok 3: sprawdzenie i poprawa danych płyty, z ostrzeżeniem o płytach, które już są w sklepie. */
-const DetailsStep = ({ details, onChange, fromLabel, existingProducts, onNext }: DetailsStepProps) => (
+const DetailsStep = ({
+  details,
+  onChange,
+  fromLabel,
+  existingProducts,
+  target,
+  destination,
+  onDestination,
+  onNext,
+}: DetailsStepProps) => (
   <Stack
     component="form"
     aria-labelledby="details-step-title"
@@ -44,7 +56,9 @@ const DetailsStep = ({ details, onChange, fromLabel, existingProducts, onNext }:
   >
     <StepTitle id="details-step-title" title="Sprawdź dane" />
 
-    {existingProducts.length > 0 && <ExistingProductsAlert matches={existingProducts} />}
+    {existingProducts.length > 0 && (
+      <ExistingProductsAlert matches={existingProducts} destination={destination} onChange={onDestination} />
+    )}
 
     {TEXT_FIELDS.map(({ field, label, numeric }) => (
       <TextInput
@@ -56,7 +70,14 @@ const DetailsStep = ({ details, onChange, fromLabel, existingProducts, onNext }:
             <FromLabelHint show={fromLabel[field]} />
           </Group>
         }
-        value={details[field]}
+        readOnly={Boolean(target) && (field === "artists" || field === "title")}
+        value={
+          target && field === "artists"
+            ? target.artists.join(", ")
+            : target && field === "title"
+              ? target.title
+              : details[field]
+        }
         onChange={(event) => onChange({ [field]: event.currentTarget.value })}
         {...(numeric && { inputMode: "numeric" as const })}
       />

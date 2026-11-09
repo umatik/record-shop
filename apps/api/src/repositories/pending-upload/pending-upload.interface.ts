@@ -20,10 +20,11 @@ export interface PendingUploadRepository {
   /**
    * Zabiera oczekujące zdjęcia (usuwa je z tabeli) i zwraca je w kolejności podanych `ids`.
    * Zwraca tylko te, które istnieją i nie są starsze niż `maxAgeMs`; wywołujący sprawdza, czy są wszystkie.
-   * Starszych nie rusza, usunie je sprzątanie razem z plikami.
+   * Starszych nie rusza, usunie je sprzątanie razem z plikami. Zdjęcia szkiców z kreatora (`draft_id`)
+   * nie wygasają po `maxAgeMs`, mają własne sprzątanie w `LabelDraftRepository.deleteAbandoned`.
    */
   claim(client: PoolClient, ids: string[], maxAgeMs: number): Promise<PendingUpload[]>;
 
-  /** Usuwa zdjęcia starsze niż `olderThan` i zwraca je, żeby skasować pliki. */
+  /** Usuwa zdjęcia spoza szkiców starsze niż `olderThan` i zwraca je, żeby skasować pliki. */
   deleteExpired(client: PoolClient, olderThan: Date): Promise<PendingUpload[]>;
 }

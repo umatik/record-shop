@@ -1,4 +1,5 @@
-import { Button, FileButton, Stack } from "@mantine/core";
+import { Button, FileButton, Group, Loader, Stack, Text } from "@mantine/core";
+import { useState } from "react";
 import { IconCamera, IconPhoto } from "@tabler/icons-react";
 import { shrinkPhoto } from "@/lib/image";
 
@@ -20,14 +21,18 @@ const ACCEPTED = "image/jpeg,image/png,image/webp";
  * Zdjęcia są zmniejszane w przeglądarce przed wysłaniem.
  */
 const PhotoPicker = ({ remaining, cameraLabel, cameraPrimary = false, onAdd, onError }: PhotoPickerProps) => {
+  const [preparing, setPreparing] = useState(false);
   const add = async (files: File[] | File | null) => {
     const list = (Array.isArray(files) ? files : files ? [files] : []).slice(0, remaining);
     if (list.length === 0) return;
+    setPreparing(true);
     try {
       onAdd(await Promise.all(list.map((file) => shrinkPhoto(file))));
     } catch {
       // Np. HEIC, którego przeglądarka nie umie odczytać.
       onError("Nie udało się odczytać zdjęcia. Wybierz plik JPEG, PNG albo WebP.");
+    } finally {
+      setPreparing(false);
     }
   };
 
@@ -37,6 +42,7 @@ const PhotoPicker = ({ remaining, cameraLabel, cameraPrimary = false, onAdd, onE
         {(props) => (
           <Button
             {...props}
+            disabled={preparing}
             size={cameraPrimary ? "xl" : "lg"}
             fullWidth
             variant={cameraPrimary ? "filled" : "light"}
@@ -50,6 +56,7 @@ const PhotoPicker = ({ remaining, cameraLabel, cameraPrimary = false, onAdd, onE
         {(props) => (
           <Button
             {...props}
+            disabled={preparing}
             size="lg"
             fullWidth
             variant="default"
@@ -59,6 +66,12 @@ const PhotoPicker = ({ remaining, cameraLabel, cameraPrimary = false, onAdd, onE
           </Button>
         )}
       </FileButton>
+      {preparing && (
+        <Group role="status" gap="xs">
+          <Loader size="sm" aria-hidden="true" />
+          <Text>Przygotowywanie zdjęcia…</Text>
+        </Group>
+      )}
     </Stack>
   );
 };

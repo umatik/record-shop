@@ -41,7 +41,7 @@ export class PendingUploadPostgresRepository implements PendingUploadRepository 
       `
         DELETE FROM pending_uploads
         WHERE id = ANY ($1::uuid[])
-          AND created_at > NOW() - ($2::bigint * INTERVAL '1 millisecond')
+          AND (draft_id IS NOT NULL OR created_at > NOW() - ($2::bigint * INTERVAL '1 millisecond'))
         RETURNING ${COLUMNS}
       `,
       [ids, maxAgeMs],
@@ -56,7 +56,7 @@ export class PendingUploadPostgresRepository implements PendingUploadRepository 
     const result = await client.query<PendingUpload>(
       `
         DELETE FROM pending_uploads
-        WHERE created_at < $1
+        WHERE draft_id IS NULL AND created_at < $1
         RETURNING ${COLUMNS}
       `,
       [olderThan],

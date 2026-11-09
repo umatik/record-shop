@@ -5,6 +5,8 @@ import { SettingsService } from "@/services/settings.service.js";
 import { SettingsPostgresRepository } from "@/repositories/settings/settings-postgres.repository.js";
 import { SettingsController } from "@/controllers/settings.controller.js";
 import { createSettingsRouter } from "@/routes/settings.routes.js";
+import { LabelDraftService } from "@/services/label-draft.service.js";
+import { LabelDraftPostgresRepository } from "@/repositories/label-draft/label-draft-postgres.repository.js";
 import { RecordLookupService } from "@/services/record-lookup.service.js";
 import { RecordLookupController } from "@/controllers/record-lookup.controller.js";
 import { createRecordLookupRouter } from "@/routes/record-lookup.routes.js";
@@ -203,7 +205,11 @@ const recordLookupService = new RecordLookupService(
 );
 
 export const recordLookupRouter = createRecordLookupRouter(
-  new RecordLookupController(recordLookupService, productService),
+  new RecordLookupController(
+    recordLookupService,
+    productService,
+    new LabelDraftService(new LabelDraftPostgresRepository(), storage, pool, recordLookupService),
+  ),
   authorizationService,
   upload,
 );

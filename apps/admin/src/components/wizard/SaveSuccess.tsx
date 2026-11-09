@@ -18,7 +18,7 @@ const SaveSuccess = ({ result, recordName, onAddAnother }: SaveSuccessProps) => 
         <IconCheck size={52} stroke={2.5} />
       </ThemeIcon>
       <Title id="save-success-title" order={1} ta="center">
-        {result.published ? "Płyta jest w sprzedaży" : "Zapisano szkic"}
+        {result.addedVariant ? "Dodano wariant" : result.published ? "Płyta jest w sprzedaży" : "Zapisano szkic"}
       </Title>
       <Text fz="lg" ta="center">
         {recordName}
@@ -37,8 +37,14 @@ const SaveSuccess = ({ result, recordName, onAddAnother }: SaveSuccessProps) => 
     <Button size="xl" fullWidth leftSection={<IconPlus size={26} aria-hidden="true" />} onClick={onAddAnother}>
       Dodaj kolejną płytę
     </Button>
-    <Button component={Link} href={result.published ? "/produkty" : "/szkice"} size="lg" variant="default" fullWidth>
-      {result.published ? "Zobacz produkty" : "Zobacz szkice"}
+    <Button
+      component={Link}
+      href={result.addedVariant ? `/produkty/${result.productId}` : result.published ? "/produkty" : "/szkice"}
+      size="lg"
+      variant="default"
+      fullWidth
+    >
+      {result.addedVariant ? "Zobacz produkt" : result.published ? "Zobacz produkty" : "Zobacz szkice"}
     </Button>
   </Stack>
 );

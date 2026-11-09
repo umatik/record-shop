@@ -82,6 +82,62 @@ const shopIds = async (query: Record<string, string>) => {
   return response.body.products.map((product: { id: number }) => product.id);
 };
 
+describe("Wizard photo drafts", () => {
+  it("adds the scanned copy to the selected product and consumes its label only once", async () => {
+    const { productId, variantId } = await createDraft();
+    const url = "/products/lookup/drafts/c192ab28-aa58-48e9-b0c9-b7c7780b25c0";
+    const draft = await asAdmin(request(app).put(url)).attach("images", photo).expect(200);
+    const label = draft.body.photos[0];
+    const input = { priceEur: 7700, attributes: vinylVariant, photoUploadIds: [label.id] };
+    const endpoint = `/products/${productId}/variants`;
+    const added = await asAdmin(request(app).post(endpoint)).send(input).expect(201);
+    expect(added.body.variant.media[0]).toMatchObject({ url: label.path, isPrimary: true });
+    await asAdmin(request(app).post(endpoint)).send(input).expect(400);
+    const { body } = await asAdmin(request(app).get(`/products/manage/${productId}`)).expect(200);
+    expect(body.product.isPublished).toBe(false);
+    expect(body.product.variants.map((v: { id: number }) => v.id).sort()).toEqual([variantId, added.body.variant.id].sort());
+    await asAdmin(request(app).get(url)).expect(404);
+  });
+
+  it("resumes an uploaded label after a day and claims it once when the record is saved", async () => {
+    const url = "/products/lookup/drafts/994a88f2-6e66-4f64-b9e9-ff7b183cc851";
+    const saved = await asAdmin(request(app).put(url)).attach("images", photo);
+    expect(saved.status).toBe(200);
+    const [{ id, path: photoPath }] = saved.body.photos;
+    expect((await asAdmin(request(app).get("/products/lookup/drafts"))).body.drafts).toHaveLength(1);
+    expect((await asAdmin(request(app).put(url)).attach("images", photo)).status).toBe(409);
+    await pool.query("UPDATE pending_uploads SET created_at = NOW() - INTERVAL '2 days' WHERE id = $1", [id]);
+    // The legacy photo lookup also runs cleanup.
+    await asAdmin(request(app).post("/products/lookup/photo")).attach("images", photo);
+    expect(await fileExists(photoPath)).toBe(true);
+    const read = await asAdmin(request(app).post(url + "/read")).send({ previous: id });
+    expect(read.status).toBe(200);
+    expect(read.body.photoUploadIds).toEqual([id]);
+    expect((await asAdmin(request(app).get(url))).body.result).toEqual(read.body);
+    const input = { type: "vinyl", title: "Durable draft", attributes: { artists: ["Artist"] },
+      variants: [{ priceEur: 100, attributes: vinylVariant, photoUploadIds: [id] }] };
+    const completed = await asAdmin(request(app).post("/products")).send(input);
+    expect(completed.status).toBe(201);
+    expect(completed.body.product.variants[0].media[0]).toMatchObject({ url: photoPath, isPrimary: true });
+    expect((await asAdmin(request(app).get(url))).status).toBe(404);
+    expect((await asAdmin(request(app).post("/products")).send(input)).status).toBe(400);
+  });
+
+  it("removes a draft abandoned for over 30 days when another draft is saved", async () => {
+    const old = "/products/lookup/drafts/5b0c8f53-3f0c-4b47-9a59-2f3f0f1f6c11";
+    const saved = await asAdmin(request(app).put(old)).attach("images", photo).expect(200);
+    const [{ id, path: photoPath }] = saved.body.photos;
+    await pool.query("UPDATE pending_uploads SET created_at = NOW() - INTERVAL '31 days' WHERE id = $1", [id]);
+
+    await asAdmin(request(app).put("/products/lookup/drafts/7d7e2b0a-4a51-4d0e-8f3e-0c1b5a9e2d22"))
+      .attach("images", photo)
+      .expect(200);
+
+    await asAdmin(request(app).get(old)).expect(404);
+    expect(await fileExists(photoPath)).toBe(false);
+  });
+});
+
 describe("Product lifecycle API – deleting", () => {
   it("should permanently delete a draft together with its files", async () => {
     const { productId, variantId } = await createDraft();

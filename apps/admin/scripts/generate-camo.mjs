@@ -4,13 +4,14 @@
 // w duże kanciaste kliny o długich prostych krawędziach. Siatka zawija się na krawędziach (bez szwów).
 // Uruchomienie: node scripts/generate-camo.mjs  →  public/patterns/camo.svg
 import { writeFileSync } from "node:fs";
+import camoColors from "../src/lib/camo-colors.json" with { type: "json" };
 
 const SIZE = 1280; // bok kafelka w px: duży, żeby na szerokim ekranie nie było widać powtórzeń
 const GRID = 12; // oczek siatki w rzędzie i kolumnie (oczko ~107 px)
 const JITTER = 0.42; // przesunięcie punktów jako ułamek oczka: większe = ostrzejsze kliny
 const MERGE = 0.55; // szansa, że trójkąt przejmie kolor sąsiada (większe płaty)
 // Od najciemniejszego do najjaśniejszego, jak na wzorze.
-const PALETTE = ["#26281f", "#3b3e2f", "#4a5134", "#6b6e4c"];
+const PALETTE = [camoColors.camoCharcoal, camoColors.camoDarkOlive, camoColors.camoOlive, camoColors.camoKhaki];
 
 // Deterministyczny generator liczb losowych, żeby wzór był zawsze taki sam.
 let seed = 7;

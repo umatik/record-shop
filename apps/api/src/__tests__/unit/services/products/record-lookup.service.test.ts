@@ -27,6 +27,7 @@ const storage = {
   save: jest.fn<Storage["save"]>(async (_file, filename) => filename),
   delete: jest.fn<Storage["delete"]>(async () => undefined),
   exists: jest.fn<Storage["exists"]>(),
+  read: jest.fn<Storage["read"]>(),
 };
 
 const pendingUploads = {

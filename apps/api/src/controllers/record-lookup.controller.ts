@@ -4,6 +4,8 @@ import type { RecordLookupService } from "@/services/record-lookup.service.js";
 import type { LabelImage } from "@/integrations/claude/label-reader.js";
 import type { AuthenticatedRequest } from "@/middleware/authentication.middleware.js";
 import { parseId } from "@/validators/helpers/id.validator.js";
+import { AppError } from "@/errors/app.error.js";
+import type { LabelDraftService } from "@/services/label-draft.service.js";
 import { PhotoLookupError } from "@/errors/external-service.error.js";
 import type { ProductService } from "@/services/product.service.js";
 import { formatZodIssues } from "@/validators/helpers/zod.js";
@@ -50,40 +52,88 @@ const conditionNoteSchema = z.strictObject({
   text: z.string().trim().min(1).max(1000),
 });
 
+function parsePhotos(req: Request, allowEmpty = false) {
+  const files = Array.isArray(req.files) ? req.files : [];
+
+  if ((!allowEmpty && files.length === 0) || files.length > MAX_LABEL_IMAGES) {
+    throw new AppError(`Send 1–${MAX_LABEL_IMAGES} label photos in the "images" field`, 400);
+  }
+
+  const images: LabelImage[] = [];
+
+  for (const file of files) {
+    const mediaType = IMAGE_TYPES.find((type) => type === file.mimetype);
+
+    if (!mediaType) {
+      throw new AppError("Label photos must be JPEG, PNG or WebP", 400);
+    }
+
+    if (file.size > MAX_LABEL_IMAGE_BYTES) {
+      throw new AppError("Each label photo can be at most 5 MB", 400);
+    }
+
+    images.push({ data: file.buffer, mediaType });
+  }
+
+  return images;
+}
+
+function draftId(req: Request) {
+  const parsed = z.uuid().safeParse(req.params.id);
+
+  if (!parsed.success) {
+    throw new AppError("Invalid draft id", 400);
+  }
+
+  return parsed.data;
+}
+
+/** Identyfikatory zdjęć szkicu, które widział panel, po przecinku w kolejności. */
+function previousPhotoIds(req: Request) {
+  const raw: unknown = req.body?.previous;
+  const parsed = z
+    .array(z.uuid())
+    .max(MAX_LABEL_IMAGES)
+    .safeParse(typeof raw === "string" ? raw.split(",").filter(Boolean) : []);
+
+  if (!parsed.success) {
+    throw new AppError("Invalid photo ids", 400);
+  }
+
+  return parsed.data;
+}
+
 export class RecordLookupController {
   constructor(
     private readonly recordLookupService: RecordLookupService,
     private readonly productService: ProductService,
+    private readonly drafts: LabelDraftService,
   ) {}
 
+  listDrafts = async (_req: Request, res: Response) => {
+    res.json({ drafts: await this.drafts.list() });
+  };
+
+  getDraft = async (req: Request, res: Response) => {
+    res.json(await this.drafts.get(draftId(req)));
+  };
+
+  saveDraft = async (req: Request, res: Response) => {
+    const previous = previousPhotoIds(req);
+    const photos = parsePhotos(req, previous.length > 0);
+    const userId = (req as AuthenticatedRequest).user?.userId;
+
+    res.json(
+      await this.drafts.replace(draftId(req), previous, photos, userId ? Number(userId) : null),
+    );
+  };
+
+  readDraft = async (req: Request, res: Response) => {
+    res.json(await this.drafts.read(draftId(req), previousPhotoIds(req)));
+  };
+
   lookupByPhoto = async (req: Request, res: Response) => {
-    const files = Array.isArray(req.files) ? req.files : [];
-
-    if (files.length === 0 || files.length > MAX_LABEL_IMAGES) {
-      res.status(400).json({
-        message: `Send 1–${MAX_LABEL_IMAGES} label photos in the "images" field`,
-      });
-      return;
-    }
-
-    const images: LabelImage[] = [];
-
-    for (const file of files) {
-      const mediaType = IMAGE_TYPES.find((type) => type === file.mimetype);
-
-      if (!mediaType) {
-        res.status(400).json({ message: "Label photos must be JPEG, PNG or WebP" });
-        return;
-      }
-
-      if (file.size > MAX_LABEL_IMAGE_BYTES) {
-        res.status(400).json({ message: "Each label photo can be at most 5 MB" });
-        return;
-      }
-
-      images.push({ data: file.buffer, mediaType });
-    }
-
+    const images = parsePhotos(req);
     const userId = (req as AuthenticatedRequest).user?.userId;
 
     try {

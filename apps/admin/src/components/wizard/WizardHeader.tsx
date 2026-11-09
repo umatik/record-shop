@@ -45,6 +45,7 @@ const WizardHeader = ({ step, stepCount, onBack, onForward }: WizardHeaderProps)
       </div>
     </div>
     <Progress
+      color="camoOlive"
       value={(step / stepCount) * 100}
       size="md"
       radius="xl"

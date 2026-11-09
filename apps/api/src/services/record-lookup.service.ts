@@ -138,6 +138,10 @@ export class RecordLookupService {
     // i nadal podepnie to zdjęcie do wariantu.
     const photoUploadIds = await this.savePendingPhotos(images, userId);
 
+    return this.readLabelPhotos(images, photoUploadIds);
+  }
+
+  async readLabelPhotos(images: LabelImage[], photoUploadIds: string[]) {
     try {
       const labelReader = this.require(await this.integrations.getLabelReader(), "Claude");
       const discogs = this.require(await this.integrations.getDiscogs(), "Discogs");

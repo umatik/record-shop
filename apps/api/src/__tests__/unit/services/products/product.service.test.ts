@@ -132,6 +132,7 @@ describe("ProductService", () => {
       save: jest.fn(),
       delete: jest.fn(),
       exists: jest.fn(),
+      read: jest.fn(),
     };
 
     exchangeRates = {

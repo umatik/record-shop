@@ -23,6 +23,45 @@ export const createRecordLookupRouter = (
 
   /**
    * @openapi
+   * /products/lookup/drafts:
+   *   get:
+   *     summary: List durable label-photo drafts
+   *     security: [{ bearerAuth: [] }]
+   *     responses: { '200': { description: Drafts with ordered photos and last lookup } }
+   * /products/lookup/drafts/{id}:
+   *   parameters:
+   *     - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+   *   get:
+   *     summary: Resume a label-photo draft
+   *     security: [{ bearerAuth: [] }]
+   *     responses: { '200': { description: Draft with photos }, '404': { description: Missing draft } }
+   *   put:
+   *     summary: Save or replace draft photos (empty list removes the draft)
+   *     security: [{ bearerAuth: [] }]
+   *     requestBody:
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               previous: { type: string, description: Comma-separated previous photo ids in order }
+   *               images: { type: array, maxItems: 2, items: { type: string, format: binary } }
+   *     responses: { '200': { description: Saved draft }, '409': { description: Concurrent change } }
+   * /products/lookup/drafts/{id}/read:
+   *   parameters:
+   *     - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+   *   post:
+   *     summary: Recognize draft photos and save the result for resuming
+   *     security: [{ bearerAuth: [] }]
+   *     responses: { '200': { description: Lookup result including photo ids } }
+   */
+  router.get("/lookup/drafts", ...canCreate, controller.listDrafts);
+  router.get("/lookup/drafts/:id", ...canCreate, controller.getDraft);
+  router.put("/lookup/drafts/:id", ...canCreate, upload.array("images", MAX_LABEL_IMAGES), controller.saveDraft);
+  router.post("/lookup/drafts/:id/read", ...canCreate, controller.readDraft);
+
+  /**
+   * @openapi
    * /products/lookup/photo:
    *   post:
    *     tags: [Products – wizard]

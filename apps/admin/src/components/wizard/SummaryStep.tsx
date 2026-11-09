@@ -4,6 +4,7 @@ import { Alert, Button, List, Stack } from "@mantine/core";
 import { IconDeviceFloppy, IconWorldUpload } from "@tabler/icons-react";
 import { useState } from "react";
 import { useCreateRecord, type CreateRecordResult } from "@/hooks/useCreateRecord";
+import type { ProductMatch } from "@/types/lookup";
 import { ApiError } from "@/services/http";
 import type { VariantInput } from "./condition";
 import type { RecordDetails } from "./details";
@@ -13,12 +14,13 @@ import SaveSuccess from "./SaveSuccess";
 import StepTitle from "./StepTitle";
 
 type SummaryStepProps = {
+  target: ProductMatch | null;
   details: RecordDetails;
   variant: VariantInput;
   photoUploadIds: string[];
   labelPhotos: File[];
   extraPhotos: File[];
-  onSaved: () => void;
+  onSaved: (id: number) => void;
   onAddAnother: () => void;
 };
 
@@ -26,6 +28,7 @@ type SummaryStepProps = {
  * Krok 6: podsumowanie i zapis (szkic albo publikacja). Ostrzeżenia z publikacji pokazujemy, ale nie blokują.
  */
 const SummaryStep = ({
+  target,
   details,
   variant,
   photoUploadIds,
@@ -41,11 +44,11 @@ const SummaryStep = ({
   const save = (publish: boolean) => {
     setPublishing(publish);
     createRecord.mutate(
-      { product: buildProductInput(details, variant, photoUploadIds), extraPhotos, publish },
+      { target, product: buildProductInput(details, variant, photoUploadIds), extraPhotos, publish },
       {
         onSuccess: (saved) => {
           setResult(saved);
-          onSaved();
+          onSaved(saved.productId);
         },
       },
     );
@@ -63,6 +66,7 @@ const SummaryStep = ({
     <Stack component="section" aria-labelledby="summary-step-title" gap="lg">
       <StepTitle id="summary-step-title" title="Podsumowanie" />
 
+      {target && <Alert color="blue">Dodajesz wariant do produktu #{target.productId}.</Alert>}
       <RecordSummary
         details={details}
         variant={variant}
@@ -84,27 +88,41 @@ const SummaryStep = ({
         </Alert>
       )}
 
-      <Button
-        size="xl"
-        fullWidth
-        leftSection={<IconWorldUpload size={26} aria-hidden="true" />}
-        loading={createRecord.isPending && publishing}
-        disabled={createRecord.isPending && !publishing}
-        onClick={() => save(true)}
-      >
-        Opublikuj
-      </Button>
-      <Button
-        size="lg"
-        variant="default"
-        fullWidth
-        leftSection={<IconDeviceFloppy size={24} aria-hidden="true" />}
-        loading={createRecord.isPending && !publishing}
-        disabled={createRecord.isPending && publishing}
-        onClick={() => save(false)}
-      >
-        Zapisz jako szkic
-      </Button>
+      {target ? (
+        <Button
+          size="xl"
+          fullWidth
+          leftSection={<IconDeviceFloppy size={26} aria-hidden="true" />}
+          loading={createRecord.isPending}
+          onClick={() => save(false)}
+        >
+          Dodaj wariant
+        </Button>
+      ) : (
+        <>
+          <Button
+            size="xl"
+            fullWidth
+            leftSection={<IconWorldUpload size={26} aria-hidden="true" />}
+            loading={createRecord.isPending && publishing}
+            disabled={createRecord.isPending && !publishing}
+            onClick={() => save(true)}
+          >
+            Opublikuj
+          </Button>
+          <Button
+            size="lg"
+            variant="default"
+            fullWidth
+            leftSection={<IconDeviceFloppy size={24} aria-hidden="true" />}
+            loading={createRecord.isPending && !publishing}
+            disabled={createRecord.isPending && publishing}
+            onClick={() => save(false)}
+          >
+            Zapisz jako szkic
+          </Button>
+        </>
+      )}
     </Stack>
   );
 };

@@ -1,4 +1,5 @@
-import { createTheme } from "@mantine/core";
+import { colorsTuple, createTheme } from "@mantine/core";
+import camoColors from "./camo-colors.json";
 
 /**
  * Motyw panelu. Marka jest czarno-biała (logo, typografia), a akcje i stany mają standardowe kolory:
@@ -11,6 +12,7 @@ export const theme = createTheme({
   // „Nasz biały”: bardzo jasna oliwka w odcieniu moro. Mantine bierze z niego tło strony, kart, okien i pól.
   white: "#f8f8f6",
   primaryColor: "blue",
+  colors: Object.fromEntries(Object.entries(camoColors).map(([name, hex]) => [name, colorsTuple(hex)])),
   defaultRadius: "md",
   fontFamily: "var(--font-figtree), system-ui, sans-serif",
   fontSizes: {
@@ -33,7 +35,14 @@ export const theme = createTheme({
   // Mobile first: wygodne cele dotyku.
   components: {
     Button: { defaultProps: { size: "md" } },
-    TextInput: { defaultProps: { size: "md" } },
+    TextInput: {
+      defaultProps: { size: "md" },
+      styles: { input: { backgroundColor: "#fff" } },
+    },
+    Textarea: {
+      defaultProps: { size: "md" },
+      styles: { input: { backgroundColor: "#fff" } },
+    },
     PasswordInput: { defaultProps: { size: "md" } },
     Badge: { defaultProps: { tt: "none" } },
   },

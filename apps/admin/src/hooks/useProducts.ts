@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { getLabelDrafts } from "@/services/labelDrafts.services";
 import { getProducts } from "@/services/products.services";
 import type { ProductStatus } from "@/types/product";
 import { productKeys } from "./queryKeys";
@@ -21,11 +22,16 @@ export function useProductList(status: ProductStatus, q: string) {
   };
 }
 
+export function useLabelDraftList(enabled: boolean) {
+  return useQuery({ queryKey: [...productKeys.all, "label-drafts"], queryFn: getLabelDrafts, enabled });
+}
+
 /** Sama liczba płyt danego statusu (np. licznik szkiców w menu). */
 export function useProductCount(status: ProductStatus) {
+  const drafts = useLabelDraftList(status === "draft");
   return useQuery({
     queryKey: productKeys.count(status),
     queryFn: () => getProducts({ status, page: 1, limit: 1 }),
-    select: (data) => data.pagination.total,
+    select: (data) => data.pagination.total + (status === "draft" ? (drafts.data?.length ?? 0) : 0),
   });
 }

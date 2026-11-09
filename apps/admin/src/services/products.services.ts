@@ -7,6 +7,7 @@ import type {
   PublishWarning,
   UpdateProductInput,
   UpdateVariantInput,
+  Variant,
 } from "@/types/product";
 import { request, toQuery } from "./http";
 
@@ -49,6 +50,14 @@ export async function unpublishProduct(productId: number) {
 
 export async function deleteProduct(productId: number) {
   await request(`/products/${productId}`, { method: "DELETE" });
+}
+
+export async function createVariant(productId: number, input: CreateProductInput["variants"][number]) {
+  const { variant } = await request<{ variant: Variant }>(`/products/${productId}/variants`, {
+    method: "POST",
+    json: input,
+  });
+  return variant;
 }
 
 export function updateVariant(productId: number, variantId: number, input: UpdateVariantInput) {

@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createProduct, publishProduct, uploadVariantPhoto } from "@/services/products.services";
-import type { CreateProductInput, Product, PublishWarning } from "@/types/product";
+import { createProduct, createVariant, publishProduct, uploadVariantPhoto } from "@/services/products.services";
+import type { CreateProductInput, PublishWarning } from "@/types/product";
 import { productKeys } from "./queryKeys";
 
 type CreateRecordInput = {
+  target: { productId: number; isPublished: boolean } | null;
   product: CreateProductInput;
   /** Zdjęcia poza labelem; trafiają za zdjęciami z `photoUploadIds`. */
   extraPhotos: File[];
@@ -11,7 +12,8 @@ type CreateRecordInput = {
 };
 
 export type CreateRecordResult = {
-  product: Product;
+  productId: number;
+  addedVariant: boolean;
   published: boolean;
   warnings: PublishWarning[];
   failedPhotos: number;
@@ -22,10 +24,25 @@ export function useCreateRecord() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ product: input, extraPhotos, publish }: CreateRecordInput): Promise<CreateRecordResult> => {
-      const product = await createProduct(input);
-      const variantId = product.variants[0]?.id;
-      const labelPhotoCount = input.variants[0]?.photoUploadIds?.length ?? 0;
+    mutationFn: async ({
+      product: input,
+      extraPhotos,
+      publish,
+      target,
+    }: CreateRecordInput): Promise<CreateRecordResult> => {
+      const variantInput = input.variants[0];
+      if (!variantInput) throw new Error("Brak danych wariantu.");
+      let productId: number;
+      let variantId: number | undefined;
+      if (target) {
+        productId = target.productId;
+        variantId = (await createVariant(productId, variantInput)).id;
+      } else {
+        const product = await createProduct(input);
+        productId = product.id;
+        variantId = product.variants[0]?.id;
+      }
+      const labelPhotoCount = variantInput.photoUploadIds?.length ?? 0;
 
       let failedPhotos = 0;
       if (variantId !== undefined) {
@@ -34,8 +51,14 @@ export function useCreateRecord() {
         }
       }
 
-      const warnings = publish ? await publishProduct(product.id) : [];
-      return { product, published: publish, warnings, failedPhotos };
+      const warnings = !target && publish ? await publishProduct(productId) : [];
+      return {
+        productId,
+        addedVariant: Boolean(target),
+        published: target?.isPublished ?? publish,
+        warnings,
+        failedPhotos,
+      };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: productKeys.all }),
   });
