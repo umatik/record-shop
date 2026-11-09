@@ -64,7 +64,7 @@ export class ProductController {
       return;
     }
 
-    await this.listProducts(req, res, status.data);
+    await this.listProducts(req, res, status.data, true);
   };
 
   getManagedProduct = async (req: Request, res: Response) => {
@@ -287,7 +287,8 @@ export class ProductController {
   // Pomocnicze
   // ------------------------------------------------------------------
 
-  private async listProducts(req: Request, res: Response, status: ProductStatus) {
+  /** `managed`: lista w panelu, z łączną liczbą sztuk na stanie (sklep jej nie dostaje). */
+  private async listProducts(req: Request, res: Response, status: ProductStatus, managed = false) {
     const page = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 20);
 
@@ -311,7 +312,7 @@ export class ProductController {
       return;
     }
 
-    const { products, total } = await this.productService.getAllProducts({
+    const { products, total, stock } = await this.productService.getAllProducts({
       ...filters.data,
       page,
       limit,
@@ -322,6 +323,7 @@ export class ProductController {
       message: "Products found",
       products,
       pagination: createPagination(page, limit, total),
+      ...(managed && stock),
     });
   }
 

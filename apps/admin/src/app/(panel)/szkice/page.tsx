@@ -1,5 +1,6 @@
 import ProductsList from "@/components/records/ProductsList";
 
-export default function DraftsPage() {
-  return <ProductsList status="draft" />;
+export default async function DraftsPage({ searchParams }: { searchParams: Promise<{ szukaj?: string }> }) {
+  const { szukaj } = await searchParams;
+  return <ProductsList status="draft" initialSearch={szukaj ?? ""} />;
 }

@@ -12,4 +12,7 @@ export const trackPath = (path: string) => {
   current = path;
 };
 
+/** Poprzednia strona panelu, np. dokąd wrócić po zamknięciu kreatora. */
+export const previousPath = () => previous;
+
 export const cameFrom = (path: string) => previous === path && window.history.length > 1;

@@ -4,6 +4,7 @@ import { Accordion, Anchor, Badge, Group, Stack } from "@mantine/core";
 import { IconArrowLeft, IconChevronDown } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import { cameFrom } from "@/lib/backToList";
 import ErrorState from "@/components/ui/ErrorState";
 import LoadingState from "@/components/ui/LoadingState";
@@ -17,17 +18,35 @@ import VariantCard from "./VariantCard";
 
 type ProductDetailProps = {
   productId: number;
+  /** Wariant, którego edycja otwiera się od razu (wejście z listy presów). */
+  openVariantId?: number;
 };
 
 /**
  * Widok produktu: status i publikacja, dane płyty, odsłuch, warianty ze zdjęciami, usuwanie.
  * Tu kończy się szkic dodany w kreatorze.
  */
-const ProductDetail = ({ productId }: ProductDetailProps) => {
+const ProductDetail = ({ productId, openVariantId }: ProductDetailProps) => {
   const { data, isPending, isError, error } = useProduct(productId);
   const product = data?.product;
   const backHref = product && !product.isPublished ? "/szkice" : "/produkty";
   const router = useRouter();
+
+  // Edycja otwarta z listy presów: po zamknięciu wracamy na listę (w historii, na to samo miejsce).
+  // Okno na telefonie (pełny ekran) potrafi zgłosić zamknięcie dwa razy; drugie cofnięcie wyrzucało
+  // na wcześniejszą stronę (np. „Dodaj płytę”), więc wracamy tylko raz.
+  const returned = useRef(false);
+  // Zwraca `true`, gdy wracamy na listę: okno zostaje wtedy otwarte i znika razem ze stroną, bez mignięcia tjuna.
+  const closeOpenedVariant = () => {
+    if (returned.current) return true;
+    if (!cameFrom("/produkty")) {
+      router.replace(`/produkty/${productId}`, { scroll: false });
+      return false;
+    }
+    returned.current = true;
+    router.back();
+    return true;
+  };
 
   return (
     // Ujemny margines znosi górny padding `main`: powrót do listy przylega do nagłówka.
@@ -112,6 +131,7 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                       variant={variant}
                       position={index + 1}
                       last={index === product.variants.length - 1}
+                      {...(variant.id === openVariantId && { openOnMount: true, onEditClose: closeOpenedVariant })}
                     />
                   ))}
                 </Stack>

@@ -1,3 +1,4 @@
+import type { StockSummary } from "@/repositories/products/product/product.interface.js";
 import { createClient } from "redis";
 import { SettingsIntegrationProvider } from "@/integrations/integration-provider.js";
 import { SecretCipher } from "@/settings/secret-cipher.js";
@@ -105,6 +106,7 @@ const productVariantMediaRepository =
 const productCache = new RedisCache<{
   products: ProductDetails[];
   total: number;
+  stock: StockSummary;
 }>(redisClient);
 
 const storage = new LocalStorage(uploadsPath);

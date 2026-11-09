@@ -16,6 +16,10 @@ type VariantCardProps = {
   position: number;
   /** Ostatni wiersz bez linii: pod nim jest już linia sekcji akordeonu. */
   last?: boolean;
+  /** Edycja otwarta od razu (wejście z listy presów). */
+  openOnMount?: boolean;
+  /** Zamknięcie edycji przejmuje rodzic (powrót na listę presów); `true` = okno zostaje, bo zniknie ze stroną. */
+  onEditClose?: () => boolean;
 };
 
 /** Tłoczenie z wytwórnią i numerem katalogowym, np. „Zulu Vibes · ZV-12-004 · 2020”. */
@@ -23,8 +27,11 @@ const describePressing = (attributes: Record<string, unknown>) =>
   [attributes.label, attributes.catalogNumber, attributes.year, attributes.country].filter(Boolean).join(" · ");
 
 /** Wariant (tłoczenie w danym stanie) jako wiersz z linią pod spodem. Kliknięcie otwiera edycję (tam też usuwanie). */
-const VariantCard = ({ productId, variant, position, last = false }: VariantCardProps) => {
-  const [editOpened, edit] = useDisclosure(false);
+const VariantCard = ({ productId, variant, position, last = false, openOnMount = false, onEditClose }: VariantCardProps) => {
+  const [editOpened, edit] = useDisclosure(openOnMount);
+  const closeEdit = () => {
+    if (!onEditClose?.()) edit.close();
+  };
   const note = (variant.attributes.conditionNote as { pl?: string } | undefined)?.pl;
   const pressing = describePressing(variant.attributes);
 
@@ -64,7 +71,7 @@ const VariantCard = ({ productId, variant, position, last = false }: VariantCard
         </Group>
       </UnstyledButton>
 
-      {editOpened && <VariantEditModal productId={productId} variant={variant} opened onClose={edit.close} />}
+      {editOpened && <VariantEditModal productId={productId} variant={variant} opened onClose={closeEdit} />}
     </>
   );
 };

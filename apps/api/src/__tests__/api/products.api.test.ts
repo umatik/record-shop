@@ -939,6 +939,26 @@ describe("Products API – drafts and publishing", () => {
     expect(ids(drafts)).toEqual([6]);
   });
 
+  it("should sum copies and presses in stock only in the admin list", async () => {
+    const token = await loginAsAdmin();
+
+    const managed = await request(app)
+      .get("/products/manage?status=published&limit=100")
+      .set("Authorization", `Bearer ${token}`);
+    const shop = await request(app).get("/products");
+
+    const variants = (managed.body.products as { variants: { quantity: number }[] }[]).flatMap(
+      (product) => product.variants,
+    );
+    const inStock = variants.reduce((sum, variant) => sum + variant.quantity, 0);
+
+    expect(managed.status).toBe(200);
+    expect(inStock).toBeGreaterThan(0);
+    expect(managed.body.copies).toBe(inStock);
+    expect(managed.body.presses).toBe(variants.length);
+    expect(shop.body).not.toHaveProperty("copies");
+  });
+
   it("should not let a regular user see the admin view", async () => {
     const token = await loginAsUser();
 

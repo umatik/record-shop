@@ -18,7 +18,7 @@ import type {
 } from "@/types/product-variant.types.js";
 import type { Cache } from "@/cache/cache.interface.js";
 import type { Database } from "@/database/database.interface.js";
-import type { ProductRepository } from "@/repositories/products/product/product.interface.js";
+import type { ProductRepository, StockSummary } from "@/repositories/products/product/product.interface.js";
 import type { ProductVariantRepository } from "@/repositories/products/product-variant/product-variant.interface.js";
 import type { Storage } from "@/storage/storage.interface.js";
 import { UnsupportedMediaTypeError } from "@/errors/unsupported-media-type.js";
@@ -43,6 +43,7 @@ import {
 export type ProductListCache = Cache<{
   products: ProductDetails[];
   total: number;
+  stock: StockSummary;
 }>;
 
 const LIST_CACHE_TTL_SECONDS = 60;
@@ -250,6 +251,8 @@ export class ProductService {
   async getAllProducts(query: ProductListQuery): Promise<{
     products: PricedProductDetails[];
     total: number;
+    /** Stan we wszystkich pasujących produktach (nie tylko na tej stronie). */
+    stock: StockSummary;
   }> {
     // Cache tylko dla sklepu i bez wyszukiwania tekstowego (każde zapytanie byłoby inne).
     // Generację odczytujemy przed pobraniem danych: jeśli w trakcie ktoś zmieni produkty i wyczyści cache,
@@ -271,9 +274,10 @@ export class ProductService {
             query,
           );
           const total = await this.productRepository.countAll(client, query);
+          const stock = await this.productRepository.stockSummary(client, query);
           await client.query("COMMIT");
 
-          const loaded = { products, total };
+          const loaded = { products, total, stock };
 
           if (cacheKey) {
             await this.cache.set(cacheKey, loaded, LIST_CACHE_TTL_SECONDS);
@@ -291,6 +295,7 @@ export class ProductService {
     return {
       products: result.products.map((product) => this.withRate(product, rate)),
       total: result.total,
+      stock: result.stock,
     };
   }
 

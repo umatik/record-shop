@@ -147,6 +147,8 @@ Wszystko w commicie `00e9a07` (wypchnięty na `main`).
    mają głównego zdjęcia (panel pokazuje zdjęcie wariantu).
 7. Etap sprzedaży: wiadomości z szablonami, Stripe, InPost, powiadomienia (`docs/sprzedaz.md`).
 8. Ustawienia w panelu (klucze Claude/Discogs, test połączenia) i ostrzeżenie o brakujących kluczach.
+9. **Lista produktów, dwa widoki:** przełącznik „Tjuny | Presy” zrobiony (`?widok=warianty`).
+   Później filtry wariantów (stan, cena, ilość, np. 0 sztuk), z własnym endpointem listy wariantów w API.
 
 ## Uwagi praktyczne
 

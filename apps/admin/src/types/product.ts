@@ -43,6 +43,9 @@ export type Product = {
 export type ProductList = {
   products: Product[];
   pagination: Pagination;
+  /** Sztuki na stanie i liczba presów we wszystkich pasujących płytach (tylko lista w panelu). */
+  copies?: number;
+  presses?: number;
 };
 
 export type ProductListFilters = {

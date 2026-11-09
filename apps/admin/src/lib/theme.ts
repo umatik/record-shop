@@ -17,11 +17,11 @@ export const theme = createTheme({
   fontFamily: "var(--font-figtree), system-ui, sans-serif",
   fontSizes: {
     xs: "0.875rem", // 14 px: przypisy
-    sm: "1rem", // 16 px: opisy pod polami
-    md: "1.125rem", // 18 px: tekst bazowy
-    lg: "1.25rem", // 20 px: drugi wiersz na liście (tytuł płyty)
+    sm: "1rem", // 16 px: opisy pod polami, drugi wiersz na liście (tytuł płyty)
+    md: "1.125rem", // 18 px: tekst bazowy, pierwszy wiersz na liście (artysta, kupujący)
+    lg: "1.25rem", // 20 px: wyróżniony tekst
     xl: "1.375rem", // 22 px: kwoty
-    xxl: "1.5rem", // 24 px: pierwszy wiersz na liście (artysta, kupujący)
+    xxl: "1.5rem", // 24 px: etykiety dużych pól (cena, ilość, stan)
   },
   headings: {
     fontFamily: "var(--font-figtree), system-ui, sans-serif",

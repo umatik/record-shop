@@ -108,6 +108,7 @@ describe("ProductService", () => {
       findById: jest.fn(),
       findAllWithVariants: jest.fn(),
       countAll: jest.fn(),
+      stockSummary: jest.fn(),
       update: jest.fn(),
       setPublished: jest.fn(),
       lockForUpdate: jest.fn<ProductRepository["lockForUpdate"]>().mockResolvedValue(true),
@@ -494,6 +495,7 @@ describe("ProductService", () => {
       cache.get.mockResolvedValue(null);
       productRepository.findAllWithVariants.mockResolvedValue(products);
       productRepository.countAll.mockResolvedValue(1);
+      productRepository.stockSummary.mockResolvedValue({ copies: 3, presses: 1 });
 
       const result = await productService.getAllProducts(
         listQuery({ format: '7"', priceMaxEur: 2000 }),
@@ -501,7 +503,7 @@ describe("ProductService", () => {
 
       expect(cache.set).toHaveBeenCalledWith(
         'products:list:g1:[["format","7\\""],["limit",20],["page",1],["priceMaxEur",2000],["sort","newest"],["status","published"]]',
-        { products, total: 1 },
+        { products, total: 1, stock: { copies: 3, presses: 1 } },
         60,
       );
       expect(result.products[0]?.variants[0]?.pricePln).toBe(6500);
@@ -556,7 +558,7 @@ describe("ProductService", () => {
     });
 
     it("should return cached products without touching the database", async () => {
-      cache.get.mockResolvedValue({ products: [], total: 0 });
+      cache.get.mockResolvedValue({ products: [], total: 0, stock: { copies: 0, presses: 0 } });
 
       await productService.getAllProducts(listQuery());
 

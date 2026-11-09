@@ -1,10 +1,12 @@
 "use client";
 
-import { Alert, Loader, Stack, Text } from "@mantine/core";
+import { Alert, Button, Loader, Stack, Text } from "@mantine/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { productKeys } from "@/hooks/queryKeys";
 import { saveLabelDraft, type LabelDraft, type WizardDraftState } from "@/services/labelDrafts.services";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { previousPath } from "@/lib/backToList";
 import ErrorState from "@/components/ui/ErrorState";
 import { useLabelLookup, useReleaseDraft, useReleaseSearch } from "@/hooks/useLookup";
 import type {
@@ -234,10 +236,23 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
     persist({ details: manual, fromLabel: {}, existingProducts: [] });
   }
 
+  const router = useRouter();
+  // Zdjęcia i dane są już w szkicu, więc zamknięcie niczego nie gubi; wracamy tam, skąd otwarto kreator.
+  const close = () => {
+    const back = previousPath();
+    router.replace(back && back !== "/dodaj" ? back : "/");
+  };
+
   const error = reread.error ?? releaseSearch.error ?? releaseDraft.error;
 
   return (
-    <Stack gap="lg" maw={640} mx="auto">
+    // Kreator wypełnia ekran do dołu, „Zamknij” zostaje pod treścią kroku.
+    <Stack
+      gap="lg"
+      maw={640}
+      mx="auto"
+      mih="calc(100dvh - var(--app-shell-header-height) - 2 * var(--mantine-spacing-md))"
+    >
       <WizardHeader
         step={STEP_NUMBER[step]}
         stepCount={STEP_COUNT}
@@ -331,6 +346,10 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
           onAddAnother={reset}
         />
       )}
+
+      <Button variant="subtle" color="gray" size="lg" fullWidth mt="auto" onClick={close}>
+        Zamknij
+      </Button>
     </Stack>
   );
 };

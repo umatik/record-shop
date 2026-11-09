@@ -27,14 +27,14 @@ type ListRowProps = {
 const ListRow = ({ href, thumb, variants, title, subtitle, extra, aside, actions }: ListRowProps) => {
   const row = (
     <UnstyledButton component={Link} href={href} display="block" w="100%" py="lg">
-      <Group wrap="nowrap" gap="md" align="center">
+      <Group wrap="nowrap" gap="md" align="flex-start">
         <RecordThumb src={thumb} {...(variants !== undefined && { variants })} />
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={700} fz="xxl" lh={1.25} lineClamp={2}>
+          <Text fw={700} fz="md" lh={1.25} lineClamp={2}>
             {title}
           </Text>
           {subtitle && (
-            <Text c="dimmed" fz="lg" lh={1.35} lineClamp={2}>
+            <Text c="dimmed" fz="sm" lh={1.35} lineClamp={2}>
               {subtitle}
             </Text>
           )}

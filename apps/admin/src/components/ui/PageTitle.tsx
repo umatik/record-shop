@@ -1,10 +1,11 @@
 import { Group, Text, Title } from "@mantine/core";
+import type { ReactNode } from "react";
 
 type PageTitleProps = {
   id?: string;
   title: string;
   /** Krótki dopisek po prawej, np. liczba pozycji. */
-  aside?: string | undefined;
+  aside?: ReactNode;
   order?: 1 | 2;
 };
 
@@ -15,7 +16,7 @@ const PageTitle = ({ id, title, aside, order = 1 }: PageTitleProps) => (
       {title}
     </Title>
     {aside && (
-      <Text c="dimmed" fz={order === 1 ? "lg" : "md"}>
+      <Text component="div" c="dimmed" fz={order === 1 ? "md" : "sm"}>
         {aside}
       </Text>
     )}

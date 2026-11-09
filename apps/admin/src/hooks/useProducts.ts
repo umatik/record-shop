@@ -19,6 +19,8 @@ export function useProductList(status: ProductStatus, q: string) {
     ...query,
     products: query.data?.pages.flatMap((page) => page.products) ?? [],
     total: query.data?.pages[0]?.pagination.total,
+    copies: query.data?.pages[0]?.copies,
+    presses: query.data?.pages[0]?.presses,
   };
 }
 

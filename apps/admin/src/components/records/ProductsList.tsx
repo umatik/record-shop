@@ -1,16 +1,19 @@
 "use client";
 
-import { Button, Stack, Text, TextInput } from "@mantine/core";
+import { Button, CloseButton, Group, SegmentedControl, Stack, Text, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconSearch } from "@tabler/icons-react";
-import { useState } from "react";
+import { IconMusic, IconPackage, IconSearch, IconVinyl, type Icon } from "@tabler/icons-react";
+import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import LoadingState from "@/components/ui/LoadingState";
 import PageTitle from "@/components/ui/PageTitle";
 import { useLabelDraftList, useProductList } from "@/hooks/useProducts";
-import { count, mediaSrc, primaryPhoto, productArtist } from "@/lib/format";
-import type { Product, ProductStatus } from "@/types/product";
+import { count, formatEur, mediaSrc, primaryPhoto, productArtist, variantPhoto } from "@/lib/format";
+import { describeVariant } from "@/lib/vinyl";
+import type { Product, ProductStatus, Variant } from "@/types/product";
 import { deleteLabelDraft } from "@/services/labelDrafts.services";
 import { deleteProduct } from "@/services/products.services";
 import DraftActions from "./DraftActions";
@@ -18,14 +21,47 @@ import DraftBadges from "./DraftBadges";
 import ListRow from "./ListRow";
 import RowList from "./RowList";
 
+export type ProductsView = "products" | "variants";
+
 type ProductsListProps = {
   status: ProductStatus;
+  /** Opublikowane: wiersz = płyta albo wiersz = wariant (`?widok=warianty`). */
+  view?: ProductsView;
+  /** Fraza z adresu (`?szukaj=`): po powrocie z produktu lista pokazuje te same wyniki. */
+  initialSearch?: string;
 };
 
-const COPY: Record<ProductStatus, { title: string; counter: (n: number) => string; empty: string }> = {
+const VIEWS = [
+  { value: "products", label: "Tunes" },
+  { value: "variants", label: "Presses" },
+];
+
+/** Licznik z ikoną; pełny opis w podpowiedzi i dla czytnika ekranu. */
+const Stat = ({ icon: StatIcon, value, label }: { icon: Icon; value: number; label: string }) => (
+  <Group component="span" gap={4} wrap="nowrap" title={label} aria-label={label} role="img">
+    <StatIcon size={20} aria-hidden="true" />
+    <span aria-hidden="true">{value}</span>
+  </Group>
+);
+
+const COPY: Record<
+  ProductStatus,
+  { title: string; counter: (n: number, stock?: { copies?: number; presses?: number }) => ReactNode; empty: string }
+> = {
   published: {
     title: "Produkty",
-    counter: (n) => `${count(n, ["płyta", "płyty", "płyt"])} w sprzedaży`,
+    // Sztuki na stanie (fizyczne płyty) i tjuny, w których leżą.
+    counter: (n, { copies, presses } = {}) => (
+      <Group component="span" gap="md" wrap="nowrap">
+        {copies !== undefined && (
+          <Stat icon={IconPackage} value={copies} label={`${count(copies, ["płyta", "płyty", "płyt"])} na stanie`} />
+        )}
+        {presses !== undefined && (
+          <Stat icon={IconVinyl} value={presses} label={count(presses, ["pres", "presy", "presów"])} />
+        )}
+        <Stat icon={IconMusic} value={n} label={count(n, ["tjun", "tjuny", "tjunów"])} />
+      </Group>
+    ),
     empty: "Nie ma jeszcze płyt w sprzedaży.",
   },
   draft: {
@@ -36,10 +72,28 @@ const COPY: Record<ProductStatus, { title: string; counter: (n: number) => strin
 };
 
 /** Lista płyt jednego statusu z wyszukiwaniem i przyciskiem „Pokaż więcej”. */
-const ProductsList = ({ status }: ProductsListProps) => {
-  const [search, setSearch] = useState("");
+const ProductsList = ({ status, view = "products", initialSearch = "" }: ProductsListProps) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [search, setSearch] = useState(initialSearch);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [q] = useDebouncedValue(search.trim(), 300);
   const list = useProductList(status, q);
+
+  /** Adres listy z widokiem i frazą; replace, żeby wpisywanie nie zapychało historii. */
+  const listHref = (nextView: string, phrase: string) => {
+    const params = new URLSearchParams();
+    if (nextView === "variants") params.set("widok", "warianty");
+    if (phrase) params.set("szukaj", phrase);
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  };
+
+  useEffect(() => {
+    if (q !== initialSearch) router.replace(listHref(view, q), { scroll: false });
+    // Reagujemy tylko na zmianę frazy; reszta adresu idzie z tego samego renderu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
   const copy = COPY[status];
   const isDraft = status === "draft";
 
@@ -55,6 +109,39 @@ const ProductsList = ({ status }: ProductsListProps) => {
     })
     .filter((draft) => `${draft.artist} ${draft.title}`.toLowerCase().includes(q.toLowerCase()));
   const total = list.total === undefined || (isDraft && !drafts.data) ? undefined : list.total + labelDrafts.length;
+
+  const clearSearch = () => {
+    setSearch("");
+    searchRef.current?.focus();
+  };
+
+  const changeView = (next: string) => router.replace(listHref(next, q), { scroll: false });
+
+  const variantRows = list.products.flatMap((product) => product.variants.map((variant) => ({ product, variant })));
+
+  const renderVariant = ({ product, variant }: { product: Product; variant: Variant }) => (
+    <ListRow
+      href={`/produkty/${product.id}?pres=${variant.id}`}
+      thumb={variantPhoto(variant) ?? primaryPhoto(product)}
+      title={productArtist(product) || product.title}
+      subtitle={productArtist(product) ? product.title : undefined}
+      extra={
+        <Text fz="sm" c="dimmed">
+          {describeVariant(variant.attributes)}
+        </Text>
+      }
+      aside={
+        <Stack gap={2} align="flex-end" style={{ whiteSpace: "nowrap" }}>
+          <Text fw={700} fz="md">
+            {formatEur(variant.priceEur)}
+          </Text>
+          <Text fz="sm" fw={600} c={variant.quantity === 0 ? "red" : undefined}>
+            {variant.quantity === 0 ? "wyprzedane" : `${variant.quantity} szt.`}
+          </Text>
+        </Stack>
+      }
+    />
+  );
 
   const renderProduct = (product: Product) => (
     <ListRow
@@ -75,7 +162,7 @@ const ProductsList = ({ status }: ProductsListProps) => {
       })}
       aside={
         isDraft ? undefined : (
-          <Text fw={700} fz="xl" style={{ whiteSpace: "nowrap" }}>
+          <Text fw={700} fz="md" style={{ whiteSpace: "nowrap" }}>
             {product.variants.reduce((sum, variant) => sum + variant.quantity, 0)} szt.
           </Text>
         )
@@ -85,17 +172,39 @@ const ProductsList = ({ status }: ProductsListProps) => {
 
   return (
     <Stack component="section" aria-labelledby="products-title" gap="lg" maw={640} mx="auto">
-      <PageTitle id="products-title" title={copy.title} aside={total !== undefined ? copy.counter(total) : undefined} />
+      <PageTitle
+        id="products-title"
+        title={copy.title}
+        aside={total !== undefined ? copy.counter(total, list) : undefined}
+      />
 
       <TextInput
+        ref={searchRef}
         type="search"
         size="lg"
         value={search}
         onChange={(event) => setSearch(event.currentTarget.value)}
+        onKeyDown={(event) => event.key === "Escape" && search && clearSearch()}
         placeholder="Szukaj płyty"
         leftSection={<IconSearch size={22} aria-hidden="true" />}
+        rightSectionWidth={52}
+        rightSectionPointerEvents="all"
+        rightSection={
+          search && <CloseButton size="lg" iconSize={22} onClick={clearSearch} aria-label="Wyczyść wyszukiwanie" />
+        }
         aria-label="Szukaj: artysta, tytuł, numer katalogowy"
       />
+
+      {!isDraft && (
+        <SegmentedControl
+          fullWidth
+          size="lg"
+          value={view}
+          onChange={changeView}
+          data={VIEWS}
+          aria-label="Widok listy"
+        />
+      )}
 
       {list.isPending && <LoadingState label="Ładowanie płyt" height={300} />}
       {list.isError && <ErrorState message={list.error.message} />}
@@ -124,7 +233,11 @@ const ProductsList = ({ status }: ProductsListProps) => {
           )}
         />
       )}
-      <RowList items={list.products} getKey={(product) => product.id} renderItem={renderProduct} label={copy.title} />
+      {view === "variants" && !isDraft ? (
+        <RowList items={variantRows} getKey={(row) => row.variant.id} renderItem={renderVariant} label="Presy" />
+      ) : (
+        <RowList items={list.products} getKey={(product) => product.id} renderItem={renderProduct} label={copy.title} />
+      )}
 
       {list.hasNextPage && (
         <Button

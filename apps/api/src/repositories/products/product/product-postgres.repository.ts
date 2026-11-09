@@ -13,7 +13,7 @@ import {
   SORT_COLUMNS,
 } from "./product-list-query.js";
 import type { PoolClient } from "pg";
-import type { ProductRepository } from "./product.interface.js";
+import type { ProductRepository, StockSummary } from "./product.interface.js";
 import type { ProductVariantMediaType } from "@/types/product-variant-media.types.js";
 
 const PRODUCT_COLUMNS = `
@@ -295,6 +295,25 @@ export class PostgresProductRepository implements ProductRepository {
     );
 
     return Number(result.rows[0].total);
+  }
+
+  async stockSummary(
+    client: PoolClient,
+    query: Omit<ProductListQuery, "page" | "limit" | "sort">,
+  ): Promise<StockSummary> {
+    const where = buildProductWhere(query);
+
+    const result = await client.query(
+      `
+        SELECT COALESCE(SUM(v.quantity), 0) AS copies, COUNT(v.id) AS presses
+        FROM products p
+        JOIN product_variants v ON v.product_id = p.id AND v.is_deleted = FALSE
+        WHERE ${where.sql}
+      `,
+      where.values,
+    );
+
+    return { copies: Number(result.rows[0].copies), presses: Number(result.rows[0].presses) };
   }
 
   async setPublished(

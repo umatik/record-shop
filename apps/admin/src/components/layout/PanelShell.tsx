@@ -17,18 +17,20 @@ type PanelShellProps = {
 
 /**
  * Szkielet panelu, mobile first: na telefonie nagłówek i dolne menu, od tabletu menu boczne.
+ * Kreator „Dodaj płytę” to osobny tryb: bez menu konta i dolnego menu, zamyka go przycisk „Zamknij”.
  * `AppShell` daje landmarki `header`, `nav`, `main` i `footer`.
  */
 const PanelShell = ({ children }: PanelShellProps) => {
   const pathname = usePathname();
   useEffect(() => trackPath(pathname), [pathname]);
   const isDesktop = useMediaQuery("(min-width: 48em)");
+  const inWizard = pathname === "/dodaj";
 
   return (
     <AppShell
       header={{ height: 56 }}
       navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: true } }}
-      footer={{ height: 72, collapsed: isDesktop === true }}
+      footer={{ height: 72, collapsed: isDesktop === true || inWizard }}
       padding="md"
     >
       <AppShell.Header className="camo" withBorder={false}>
@@ -41,7 +43,7 @@ const PanelShell = ({ children }: PanelShellProps) => {
               </Text>
             </Group>
           </Link>
-          <UserMenu />
+          {!inWizard && <UserMenu />}
         </Group>
       </AppShell.Header>
 
@@ -51,7 +53,7 @@ const PanelShell = ({ children }: PanelShellProps) => {
 
       <AppShell.Main>{children}</AppShell.Main>
 
-      <AppShell.Footer hiddenFrom="sm" component="nav" aria-label="Menu dolne">
+      <AppShell.Footer hidden={inWizard} hiddenFrom="sm" component="nav" aria-label="Menu dolne">
         <BottomNav pathname={pathname} />
       </AppShell.Footer>
     </AppShell>

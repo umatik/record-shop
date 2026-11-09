@@ -9,6 +9,13 @@ import type {
   UpdateProductRecord,
 } from "@/types/product.types.js";
 
+export type StockSummary = {
+  /** Suma sztuk we wszystkich wariantach. */
+  copies: number;
+  /** Liczba wariantów (tłoczenie + stan), w panelu „presy”. */
+  presses: number;
+};
+
 export interface ProductRepository {
   create(client: PoolClient, data: CreateProductRecord): Promise<Product>;
 
@@ -28,6 +35,12 @@ export interface ProductRepository {
     client: PoolClient,
     query: Omit<ProductListQuery, "page" | "limit" | "sort">,
   ): Promise<number>;
+
+  /** Stan magazynu produktów pasujących do filtrów: sztuki i warianty (liczniki w panelu). */
+  stockSummary(
+    client: PoolClient,
+    query: Omit<ProductListQuery, "page" | "limit" | "sort">,
+  ): Promise<StockSummary>;
 
   update(
     client: PoolClient,

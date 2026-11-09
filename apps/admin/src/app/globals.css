@@ -48,3 +48,8 @@
   filter: invert(1);
   mix-blend-mode: screen;
 }
+
+/* Natywny krzyżyk pola wyszukiwania jest za mały na dotyk; czyścimy własnym przyciskiem. */
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+}
