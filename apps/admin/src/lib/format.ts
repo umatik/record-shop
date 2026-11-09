@@ -41,3 +41,13 @@ export function draftHints(product: Product): string[] {
   if (product.type === "vinyl" && !product.attributes.previewLinks?.length) hints.push("brak odsłuchu");
   return hints;
 }
+
+/** Imię i nazwisko kupującego albo e-mail, gdy nie podał danych. */
+export const buyerName = (buyer: { firstName: string | null; lastName: string | null; email: string }) =>
+  [buyer.firstName, buyer.lastName].filter(Boolean).join(" ") || buyer.email;
+
+/** Ile pełnych dni minęło od daty (do „czeka 3 dni”). */
+export const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+
+const dateTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeStyle: "short" });
+export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));

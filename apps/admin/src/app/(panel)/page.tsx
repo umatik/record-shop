@@ -1,4 +1,6 @@
-/** Pulpit: celowo pusty, jego zawartość ustalimy później. Katalog płyt jest w zakładce Produkty. */
+import { OrdersDashboard } from "@/components/orders/OrdersDashboard";
+
+/** Pulpit: opłacone zamówienia do wysłania (docs/sprzedaz.md). */
 export default function DashboardPage() {
-  return null;
+  return <OrdersDashboard />;
 }

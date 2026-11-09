@@ -124,3 +124,50 @@ export interface ProductMatch {
   matchedBy: ("discogs_release" | "catalog_number" | "title_artist")[];
   matchingVariantIds: number[];
 }
+
+// Zamówienia w panelu (GET /orders/manage).
+
+export type OrderStatus = "pending" | "paid" | "shipped" | "delivered" | "cancelled";
+
+export interface OrderBuyer {
+  id: number;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
+  country: string | null;
+}
+
+export interface ManagedOrderItem {
+  id: number;
+  productId: number;
+  productVariantId: number;
+  productTitle: string;
+  artists: string[];
+  quantity: number;
+  /** Eurocenty z chwili zakupu. */
+  priceEur: number;
+  photoUrl: string | null;
+  variantAttributes: Record<string, unknown>;
+}
+
+export interface ManagedOrder {
+  id: number;
+  status: OrderStatus;
+  totalEur: number;
+  buyer: OrderBuyer;
+  items: ManagedOrderItem[];
+  createdAt: string;
+  paidAt: string | null;
+  shippedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+}
+
+export interface ManagedOrderList {
+  orders: ManagedOrder[];
+  pagination: Pagination;
+}
