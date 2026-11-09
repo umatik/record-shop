@@ -55,7 +55,8 @@ function toRelease(product: Product, variant: Variant) {
     title: product.title,
     artist: product.attributes.artists?.join(", ") ?? "",
     format: variant.attributes.format,
-    price: variant.priceEur / 100,
+    priceEur: variant.priceEur,
+    pricePln: variant.pricePln ?? null,
     quantity: variant.quantity,
     photo: photo ? mediaUrl(photo) : null,
   };

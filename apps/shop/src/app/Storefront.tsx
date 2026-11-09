@@ -1,7 +1,9 @@
 "use client";
-import DiscogsCredit from "@/components/DiscogsCredit";
+import { formatPrice } from "@/lib/price";
+import { CartPreview } from "@/components/CartPreview";
+import ShopFooter from "@/components/ShopFooter";
 import Image from "next/image";
-import { IconArrowUpRight, IconX } from "@tabler/icons-react";
+import { IconShoppingCart } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import type { Release } from "@/services/catalog";
 
@@ -31,7 +33,6 @@ export default function Storefront({
     !failed,
   );
   const t = messages[lang];
-  const price = new Intl.NumberFormat(lang, { style: "currency", currency: "EUR", minimumFractionDigits: 0 });
   const dialog = useRef<HTMLDialogElement>(null);
   const [selected, setSelected] = useState<Release | null>(null);
   function preview(release: Release | null) {
@@ -41,10 +42,10 @@ export default function Storefront({
   return (
     <>
       <header>
-        <strong>
+        <Link className="brand-link" href={`/${lang}`}>
           <Image src="/logo.png" width={42} height={42} alt="" />
           RASBASS
-        </strong>
+        </Link>
         <nav aria-label={t.language}>
           {locales.map((code) => (
             <Link
@@ -60,7 +61,8 @@ export default function Storefront({
           ))}
         </nav>
         <button onClick={() => preview(null)}>
-          {t.cart} <IconArrowUpRight size={16} aria-hidden />
+          <IconShoppingCart size={20} aria-hidden />
+          {t.cart}
         </button>
       </header>
       <main>
@@ -107,7 +109,7 @@ export default function Storefront({
                     <Link
                       className="product-link"
                       prefetch={false}
-                      aria-label={[r.title, r.artist, r.detail, price.format(r.price)].filter(Boolean).join(", ")}
+                      aria-label={[r.title, r.artist, r.detail, formatPrice(lang, r)].filter(Boolean).join(", ")}
                       href={`/${lang}/products/${r.productId}/variants/${r.id}`}
                     >
                       {r.title}
@@ -120,10 +122,9 @@ export default function Storefront({
                   <small className="variant-quantity">{t.availableCount(r.quantity)}</small>
                 </span>
                 <div className="price">
-                  <strong>{r.price !== null && price.format(r.price)}</strong>
+                  <strong>{formatPrice(lang, r)}</strong>
                   <button onClick={() => preview(r)}>{t.add}</button>
                 </div>
-                <DiscogsCredit release={r.discogsReleaseId} master={r.discogsMasterId} />
               </article>
             ))}
           </div>
@@ -142,40 +143,12 @@ export default function Storefront({
           )}
         </section>
       </main>
-      <footer>RasBass Record Shop</footer>
-      <dialog ref={dialog} aria-labelledby="cart-title">
-        <div className="sectionhead">
-          <h2 id="cart-title">{t.cart}</h2>
-          <button aria-label={t.close} onClick={() => dialog.current?.close()}>
-            <IconX aria-hidden />
-          </button>
-        </div>
-        <small>{t.preview}</small>
-        {selected ? (
-          <>
-            <div className="item">
-              <div className="disc mini" />
-              <div>
-                <strong>{selected.title}</strong>
-                <p>{selected.artist}</p>
-                <small>{selected.detail}</small>
-                <br />
-                <small>{t.quantity}</small>
-              </div>
-              <strong>{selected.price !== null && price.format(selected.price)}</strong>
-            </div>
-            <div className="sum">
-              <strong>{t.total}</strong>
-              <strong>{selected.price !== null && price.format(selected.price)}</strong>
-            </div>
-          </>
-        ) : (
-          <p>{t.emptyCart}</p>
-        )}
-        <button className="close" onClick={() => dialog.current?.close()}>
-          {t.back}
-        </button>
-      </dialog>
+      <ShopFooter>
+        <small className="discogs-credit" lang="en">
+          Data provided by <a href="https://www.discogs.com/">Discogs</a>.
+        </small>
+      </ShopFooter>
+      <CartPreview dialog={dialog} lang={lang} selected={selected} />
     </>
   );
 }

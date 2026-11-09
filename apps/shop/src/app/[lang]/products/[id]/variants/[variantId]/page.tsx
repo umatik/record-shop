@@ -1,5 +1,8 @@
+import { formatPrice } from "@/lib/price";
+import { VariantCartButton } from "@/components/CartPreview";
 import ListeningRoom from "@/components/ListeningRoom";
 import DiscogsCredit from "@/components/DiscogsCredit";
+import ShopFooter from "@/components/ShopFooter";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -118,8 +121,6 @@ export default async function VariantPage({ params }: PageProps<"/[lang]/product
     [t.note, note],
   ];
 
-  const currency = (cents: number, currency: string) =>
-    new Intl.NumberFormat(lang, { style: "currency", currency }).format(cents / 100);
   const cover =
     v.media.find((m) => m.type === "photo" && m.isPrimary)?.url ||
     v.media.find((m) => m.type === "photo")?.url ||
@@ -127,7 +128,10 @@ export default async function VariantPage({ params }: PageProps<"/[lang]/product
   return (
     <>
       <header>
-        <strong>RASBASS</strong>
+        <Link className="brand-link" href={`/${lang}`}>
+          <Image src="/logo.png" width={42} height={42} alt="" />
+          RASBASS
+        </Link>
         <nav aria-label={shop.language}>
           {locales.map((l) => (
             <Link
@@ -147,12 +151,23 @@ export default async function VariantPage({ params }: PageProps<"/[lang]/product
           <div className="record-column">
             <div className="detail-intro">
               {cover && <Image src={mediaUrl(cover)} alt={product.title} unoptimized width={400} height={400} />}
-              <div>
-                <p className="variant-artist">{a.artists?.join(", ")}</p>
-                <h1>{product.title}</h1>
-                <p>{[x.label, x.catalogNumber, x.year, x.format].filter(Boolean).join(" · ")}</p>
-                <strong>{currency(v.priceEur, "EUR")}</strong>{" "}
-                {v.pricePln != null && <small>({currency(v.pricePln, "PLN")})</small>}
+              <div className="variant-summary">
+                <div>
+                  <p className="variant-artist">{a.artists?.join(", ")}</p>
+                  <h1>{product.title}</h1>
+                  <p>{[x.label, x.catalogNumber, x.year, x.format].filter(Boolean).join(" · ")}</p>
+                  <strong>{formatPrice(lang, v)}</strong>
+                </div>
+                <VariantCartButton
+                  lang={lang}
+                  item={{
+                    title: product.title,
+                    artist: a.artists?.join(", ") ?? "",
+                    detail: [x.label, x.catalogNumber, x.year, x.mediaCondition].filter(Boolean).join(" · "),
+                    priceEur: v.priceEur,
+                    pricePln: v.pricePln,
+                  }}
+                />
               </div>
             </div>
             {a.tracklist?.length ? (
@@ -210,10 +225,9 @@ export default async function VariantPage({ params }: PageProps<"/[lang]/product
             </div>
           ))}
       </main>
-      <footer>
+      <ShopFooter>
         <DiscogsCredit release={x.discogsReleaseId} master={a.discogsMasterId} />
-        RasBass Record Shop
-      </footer>
+      </ShopFooter>
     </>
   );
 }

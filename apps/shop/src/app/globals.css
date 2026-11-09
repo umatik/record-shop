@@ -28,7 +28,9 @@ header {
   padding: 18px 4%;
   color: white;
 }
-header strong {
+header .brand-link {
+  text-decoration: none;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -52,8 +54,13 @@ button {
 }
 header button {
   border: 1px solid #ffffff80;
-  border-radius: 32px;
-  padding: 10px 20px;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
 }
 .hero {
   position: relative;
@@ -172,6 +179,10 @@ dialog button.close:hover {
   color: white;
 }
 footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-top: auto;
   color: white;
   padding: 20px 4%;
@@ -404,6 +415,9 @@ header nav a[aria-current] {
   inset: 0;
   z-index: 1;
 }
+.grid .price > strong {
+  font-size: 1.125rem;
+}
 .grid .price button {
   position: relative;
   z-index: 2;
@@ -613,7 +627,7 @@ header nav a[aria-current] {
     margin: 0;
   }
   .variant-overview .detail-intro {
-    align-items: center;
+    align-items: flex-start;
     gap: clamp(18px, 2vw, 32px);
   }
 }
@@ -629,11 +643,39 @@ header nav a[aria-current] {
   border-top: 0;
 }
 
+.tracklist-section .tracks {
+  padding-block-start: 1rem;
+}
+
+footer img {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}
+.footer-copy {
+  display: grid;
+  gap: 6px;
+}
 footer .discogs-credit {
+  margin: 0;
   color: inherit;
 }
 
 .variant-quantity {
   display: block;
   margin-top: 4px;
+}
+
+.variant-summary {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+}
+.variant-cart-button {
+  background: #26281f;
+  color: #fff;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 3px;
 }
