@@ -4,6 +4,7 @@ import type {
   CreateOrderItemData,
   ManagedOrder,
   ManagedOrderFilters,
+  ManagedOrderScope,
   Order,
   OrderDetails,
   OrderQueueSummary,
@@ -47,7 +48,7 @@ export interface OrderInterface {
 
   // Obsługa zamówień w panelu.
 
-  countManaged(client: PoolClient, status?: OrderStatus): Promise<number>;
+  countManaged(client: PoolClient, scope: ManagedOrderScope): Promise<number>;
 
   findManaged(client: PoolClient, filters: ManagedOrderFilters): Promise<ManagedOrder[]>;
 

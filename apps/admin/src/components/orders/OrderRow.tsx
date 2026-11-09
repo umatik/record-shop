@@ -1,12 +1,18 @@
-import { Group, Stack, Text } from "@mantine/core";
+import { Badge, Group, Stack, Text } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import ListRow from "@/components/records/ListRow";
 import Price from "@/components/records/Price";
-import { buyerName, count, daysSince, mediaSrc } from "@/lib/format";
+import { buyerName, count, daysSince, formatDate, mediaSrc } from "@/lib/format";
 import type { Order } from "@/types/order";
+import { ORDER_STATUS } from "./orderStatus";
 
 type OrderRowProps = {
   order: Order;
+  /**
+   * Wiersz w historii zamówień: zamiast czasu oczekiwania pokazuje status, numer i datę złożenia, bo na liście
+   * są zamówienia w każdym stanie.
+   */
+  history?: boolean;
 };
 
 /** Ile opłacone zamówienie czeka na wysyłkę; od 3 dni na czerwono. */
@@ -25,7 +31,7 @@ const WaitingTime = ({ paidAt }: { paidAt: string }) => {
  * Wiersz zamówienia: płyta, kupujący, kwota i czas oczekiwania. Na telefonie kwota ze strzałką schodzi pod
  * opis, żeby nazwisko i tytuł płyty miały całą szerokość; od tabletu stoi w prawej kolumnie.
  */
-const OrderRow = ({ order }: OrderRowProps) => {
+const OrderRow = ({ order, history = false }: OrderRowProps) => {
   const [first, ...rest] = order.items;
   const record = first ? [first.artists.join(", "), first.productTitle].filter(Boolean).join(" – ") : "";
   const more = rest.length > 0 ? ` i ${count(rest.length, ["płyta", "płyty", "płyt"])} więcej` : "";
@@ -38,7 +44,18 @@ const OrderRow = ({ order }: OrderRowProps) => {
       subtitle={record + more}
       extra={
         <>
-          {order.status === "paid" && order.paidAt && <WaitingTime paidAt={order.paidAt} />}
+          {history ? (
+            <Group gap="xs" mt={2}>
+              <Badge color={ORDER_STATUS[order.status].color} variant="light" size="lg" fz="xs" fw={600}>
+                {ORDER_STATUS[order.status].label}
+              </Badge>
+              <Text fz="xs" c="dimmed">
+                #{order.id} · {formatDate(order.createdAt)}
+              </Text>
+            </Group>
+          ) : (
+            order.status === "paid" && order.paidAt && <WaitingTime paidAt={order.paidAt} />
+          )}
           <Group hiddenFrom="sm" justify="space-between" wrap="nowrap">
             <Price cents={order.totalEur} />
             <IconChevronRight size={28} color="var(--mantine-color-dimmed)" aria-hidden="true" />

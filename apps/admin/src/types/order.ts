@@ -47,7 +47,13 @@ export type OrderList = {
 };
 
 export type OrderListFilters = {
-  status: OrderStatus;
+  /** Bez statusu: wszystkie zamówienia (historia). */
+  status?: OrderStatus;
+  /** Zakres dat złożenia (`YYYY-MM-DD`, oba dni włącznie, czas polski). */
+  from?: string;
+  to?: string;
+  /** Kupujący (imię, nazwisko, e-mail) albo numer zamówienia. */
+  q?: string;
   /** `paid_oldest`: kolejka wysyłek, od najdłużej czekających od opłacenia; pozostałe po dacie złożenia. */
   sort: "oldest" | "newest" | "paid_oldest";
 };

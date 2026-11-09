@@ -196,9 +196,12 @@ export class OrderController {
       return;
     }
 
-    const { status, sort, page, limit } = parsed.data;
+    const { status, sort, page, limit, from, to, q } = parsed.data;
     const { orders, total } = await this.orderService.getManagedOrders({
       status: status === "all" ? undefined : status,
+      from,
+      to,
+      q,
       sort,
       page,
       limit,
@@ -286,6 +289,9 @@ const managedOrdersQuerySchema = z.object({
   sort: z.enum(MANAGED_ORDER_SORTS).default("newest"),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  q: z.string().trim().min(1).max(255).optional(),
 });
 
 const orderSummaryQuerySchema = z.object({

@@ -15,7 +15,7 @@ import type {
   SalesDay,
   SalesPeriod,
 } from "../../types/order.types.js";
-import { SOLD_STATUSES, type ManagedOrderSort } from "../../types/order.types.js";
+import { SOLD_STATUSES, type ManagedOrderScope, type ManagedOrderSort } from "../../types/order.types.js";
 import { ProductNotFoundError } from "@/errors/product-not-found.error.js";
 import { InsufficientStockError } from "@/errors/insufficient-stock.error.js";
 
@@ -400,15 +400,14 @@ export class OrderPostgresRepository implements OrderInterface {
 
   // ---- Obsługa zamówień w panelu ----
 
-  async countManaged(client: PoolClient, status?: OrderStatus): Promise<number> {
+  async countManaged(client: PoolClient, scope: ManagedOrderScope): Promise<number> {
     const result = await client.query(
       `
         SELECT COUNT(*) AS total
-        FROM orders
-        WHERE is_deleted = FALSE
-          AND ($1::TEXT IS NULL OR status = $1)
+        FROM orders o
+        WHERE ${MANAGED_ORDER_WHERE}
       `,
-      [status ?? null],
+      managedOrderValues(scope),
     );
 
     return Number(result.rows[0].total);
@@ -420,17 +419,16 @@ export class OrderPostgresRepository implements OrderInterface {
 
     const result = await client.query(
       `
-        WITH page AS (SELECT id
-                      FROM orders
-                      WHERE is_deleted = FALSE
-                        AND ($1::TEXT IS NULL OR status = $1)
-                      ORDER BY ${orderBy("")}
-                      LIMIT $2 OFFSET $3)
+        WITH page AS (SELECT o.id
+                      FROM orders o
+                      WHERE ${MANAGED_ORDER_WHERE}
+                      ORDER BY ${orderBy("o.")}
+                      LIMIT $6 OFFSET $7)
         ${MANAGED_ORDER_SELECT}
         WHERE o.id IN (SELECT id FROM page)
         ORDER BY ${orderBy("o.")}, oi.id
       `,
-      [filters.status ?? null, filters.limit, offset],
+      [...managedOrderValues(filters), filters.limit, offset],
     );
 
     return this.mapManagedRows(result.rows);
@@ -652,6 +650,37 @@ type ManagedOrderRow = {
 const SHOP_TIME_ZONE = "Europe/Warsaw";
 
 const SOLD_STATUS_LIST = SOLD_STATUSES.map((status) => `'${status}'`).join(", ");
+
+/**
+ * Warunek listy panelu (alias `o`), parametry `$1`–`$5` z `managedOrderValues`. Daty to dni złożenia zamówienia
+ * w czasie sklepu, oba włącznie. Fraza szuka w imieniu, nazwisku i e-mailu kupującego albo trafia w numer zamówienia.
+ */
+const MANAGED_ORDER_WHERE = `
+  o.is_deleted = FALSE
+  AND ($1::TEXT IS NULL OR o.status = $1)
+  AND ($2::DATE IS NULL OR o.created_at >= ($2::DATE)::TIMESTAMP AT TIME ZONE '${SHOP_TIME_ZONE}')
+  AND ($3::DATE IS NULL OR o.created_at < ($3::DATE + 1)::TIMESTAMP AT TIME ZONE '${SHOP_TIME_ZONE}')
+  AND ($4::TEXT IS NULL
+       OR o.id::TEXT = $5
+       OR EXISTS (SELECT 1
+                  FROM users u
+                         LEFT JOIN user_contact_details c ON c.user_id = u.id
+                  WHERE u.id = o.user_id
+                    AND (u.email ILIKE $4
+                         OR concat_ws(' ', c.first_name, c.last_name) ILIKE $4
+                         OR concat_ws(' ', c.last_name, c.first_name) ILIKE $4)))
+`;
+
+const managedOrderValues = (scope: ManagedOrderScope): (string | null)[] => {
+  const q = scope.q?.trim() || null;
+  return [
+    scope.status ?? null,
+    scope.from ?? null,
+    scope.to ?? null,
+    q && `%${q.replace(/[\\%_]/g, (char) => `\\${char}`)}%`,
+    q && q.replace(/^#/, ""),
+  ];
+};
 
 /** ORDER BY listy panelu; `prefix` to alias tabeli zamówień z kropką. Remisy rozstrzyga ID. */
 const MANAGED_ORDER_BY: Record<ManagedOrderSort, (prefix: string) => string> = {

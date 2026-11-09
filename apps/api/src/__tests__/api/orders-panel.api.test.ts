@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import app from "@/app.js";
+import { pool } from "@/database/db.js";
 import { redisClient } from "@/dependency-injection.js";
 import { loginAsAdmin, loginAsUser } from "@/__test-helpers__/auth.js";
 
@@ -153,6 +154,73 @@ describe("Orders in the admin panel", () => {
   it("should reject an unknown status filter", async () => {
     const response = await request(app)
       .get("/orders/manage?status=lost")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(400);
+  });
+});
+
+describe("Order history filters", () => {
+  const list = async (query: string) => {
+    const response = await request(app).get(`/orders/manage?${query}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(response.status).toBe(200);
+    return {
+      ids: response.body.orders.map((order: { id: number }) => order.id) as number[],
+      total: response.body.pagination.total as number,
+    };
+  };
+
+  /** Dzień `daysAgo` dni temu w czasie sklepu, jako `YYYY-MM-DD`. */
+  const shopDay = async (daysAgo: number): Promise<string> => {
+    const result = await pool.query(
+      "SELECT to_char((NOW() AT TIME ZONE 'Europe/Warsaw')::DATE - $1::INT, 'YYYY-MM-DD') AS day",
+      [daysAgo],
+    );
+    return result.rows[0].day;
+  };
+
+  it("should filter by the order day in Europe/Warsaw, both ends included", async () => {
+    const old = await placeOrder();
+    const edge = await placeOrder();
+    const recent = await placeOrder();
+    const start = "date_trunc('day', NOW() AT TIME ZONE 'Europe/Warsaw') AT TIME ZONE 'Europe/Warsaw'";
+    // Sekunda przed północą sprzed 5 dni, dokładnie ta północ i dziś.
+    await pool.query(`UPDATE orders SET created_at = ${start} - INTERVAL '5 days 1 second' WHERE id = $1`, [old]);
+    await pool.query(`UPDATE orders SET created_at = ${start} - INTERVAL '5 days' WHERE id = $1`, [edge]);
+
+    const fiveDaysAgo = await shopDay(5);
+    const today = await shopDay(0);
+
+    const since = await list(`from=${fiveDaysAgo}&sort=oldest`);
+    const until = await list(`to=${fiveDaysAgo}&sort=oldest`);
+    const oneDay = await list(`from=${fiveDaysAgo}&to=${fiveDaysAgo}`);
+    const before = await list(`to=${await shopDay(6)}`);
+
+    expect(since).toEqual({ ids: [edge, recent], total: 2 });
+    expect(until).toEqual({ ids: [old, edge], total: 2 });
+    expect(oneDay).toEqual({ ids: [edge], total: 1 });
+    expect(before).toEqual({ ids: [old], total: 1 });
+    expect((await list(`from=${today}`)).ids).toEqual([recent]);
+  });
+
+  it("should find orders by the buyer or the order number and combine with the status", async () => {
+    const paid = await placeOrder();
+    const pending = await placeOrder();
+    await request(app).post(`/orders/${paid}/mark-paid`).set("Authorization", `Bearer ${adminToken}`);
+
+    expect((await list("q=alice@example")).total).toBe(2);
+    expect((await list("q=ALICE")).total).toBe(2);
+    expect((await list("q=nobody")).total).toBe(0);
+    // `%` i `_` to zwykłe znaki, nie wzorce.
+    expect((await list("q=%25")).total).toBe(0);
+    expect(await list(`q=${pending}`)).toEqual({ ids: [pending], total: 1 });
+    expect(await list(`q=%23${paid}`)).toEqual({ ids: [paid], total: 1 });
+    expect(await list("q=alice&status=paid")).toEqual({ ids: [paid], total: 1 });
+  });
+
+  it("should reject an invalid date", async () => {
+    const response = await request(app)
+      .get("/orders/manage?from=09-11-2026")
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(response.status).toBe(400);

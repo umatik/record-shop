@@ -51,7 +51,7 @@ const waiting = (toShip: { count: number; oldestPaidAt: string | null }) => {
 
 /**
  * Pulpit sklepu (docs/pulpit-claude.md): podsumowanie w kafelkach, kolejka wysyłek, sprawy wymagające uwagi,
- * wykres sprzedaży i stan magazynu. Okres zmienia tylko sprzedaż; reszta to stan na teraz. Każda część ma
+ * wykres sprzedaży i stan magazynu. Kafelek „Sprzedane sztuki” otwiera historię zamówień. Okres zmienia tylko sprzedaż; reszta to stan na teraz. Każda część ma
  * własne zapytanie, więc błąd jednej nie zasłania pozostałych, a części, do których konto nie ma uprawnień
  * (`orders:manage`, `products:update`), nie są pobierane ani pokazywane.
  */
@@ -125,7 +125,7 @@ const Dashboard = () => {
                 value={orders?.sales.units}
                 note={orders && `W ostatnich ${orders.sales.days} dniach`}
                 failed={summary.isError}
-                onClick={() => scrollTo("sprzedaz")}
+                href="/zamowienia"
               />
             </>
           )}

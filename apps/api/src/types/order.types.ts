@@ -84,8 +84,17 @@ export type ManagedOrder = {
   cancelReason: string | null;
 };
 
-export type ManagedOrderFilters = {
+/** Zawężenie listy zamówień w panelu (historia zamówień). */
+export type ManagedOrderScope = {
   status?: OrderStatus | undefined;
+  /** Zakres dat złożenia zamówienia (`YYYY-MM-DD`, oba dni włącznie), liczony w czasie sklepu. */
+  from?: string | undefined;
+  to?: string | undefined;
+  /** Kupujący (imię, nazwisko, e-mail) albo numer zamówienia. */
+  q?: string | undefined;
+};
+
+export type ManagedOrderFilters = ManagedOrderScope & {
   sort: ManagedOrderSort;
   page: number;
   limit: number;

@@ -1,8 +1,8 @@
 import type { Order, OrderList, OrderListFilters, OrderSummary, SalesPeriod } from "@/types/order";
 import { request, toQuery } from "./http";
 
-export function getOrders({ status, sort }: OrderListFilters, page: number, limit: number) {
-  return request<OrderList>(`/orders/manage?${toQuery({ status, sort, page, limit })}`);
+export function getOrders({ status, sort, from, to, q }: OrderListFilters, page: number, limit: number) {
+  return request<OrderList>(`/orders/manage?${toQuery({ status, sort, from, to, q, page, limit })}`);
 }
 
 export function getOrderSummary(days: SalesPeriod) {

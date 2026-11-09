@@ -66,6 +66,9 @@ export const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - n
 const dateTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeStyle: "short" });
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 
+const dateOnly = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium" });
+export const formatDate = (iso: string) => dateOnly.format(new Date(iso));
+
 /**
  * Strona płyty na Discogs: master release (wszystkie wydania), a bez niego wydanie pierwszego wariantu
  * powiązanego z Discogs.

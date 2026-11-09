@@ -148,7 +148,7 @@ export class OrderService {
 
     try {
       const orders = await this.orderRepository.findManaged(client, filters);
-      const total = await this.orderRepository.countManaged(client, filters.status);
+      const total = await this.orderRepository.countManaged(client, filters);
 
       return { orders, total };
     } finally {

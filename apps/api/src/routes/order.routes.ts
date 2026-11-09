@@ -51,6 +51,9 @@ export const createOrderRouter = (
    *     parameters:
    *       - { in: query, name: status, schema: { type: string, enum: [all, pending, paid, shipped, delivered, cancelled], default: all } }
    *       - { in: query, name: sort, schema: { type: string, enum: [newest, oldest, paid_oldest], default: newest } }
+   *       - { in: query, name: from, description: "First order day (Europe/Warsaw), inclusive", schema: { type: string, format: date } }
+   *       - { in: query, name: to, description: "Last order day (Europe/Warsaw), inclusive", schema: { type: string, format: date } }
+   *       - { in: query, name: q, description: "Buyer's name or e-mail, or the order number", schema: { type: string } }
    *       - { in: query, name: page, schema: { type: integer, default: 1 } }
    *       - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
    *     responses:
