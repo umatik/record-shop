@@ -80,7 +80,20 @@ export class ProductVariantMediaService {
     }
 
     const folder = MEDIA_FOLDER_BY_TYPE[type];
-    const storageFilename = `products/${folder}/variant-${productVariantId}-${Date.now()}.${stored.extension}`;
+    // Nagrania zachowują nazwę z panelu (np. `12-zulu-vibes-utwor.mp3`), żeby dało się je rozpoznać w storage.
+    const audioName =
+      type === ProductVariantMediaType.AUDIO
+        ? filename
+            .slice(0, filename.lastIndexOf("."))
+            .normalize("NFD")
+            .replace(/[̀-ͯ]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+        : null;
+    const storageFilename = audioName
+      ? `products/${folder}/${audioName || "audio"}-${Date.now()}.${stored.extension}`
+      : `products/${folder}/variant-${productVariantId}-${Date.now()}.${stored.extension}`;
     const url = await this.storage.save(
       stored.buffer,
       storageFilename,

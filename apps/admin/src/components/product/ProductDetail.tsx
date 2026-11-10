@@ -115,7 +115,7 @@ const ProductDetail = ({ productId, openVariantId }: ProductDetailProps) => {
               </Accordion.Panel>
             </Accordion.Item>
             <Accordion.Item value="preview">
-              <Accordion.Control>Odsłuch</Accordion.Control>
+              <Accordion.Control>YouTube</Accordion.Control>
               <Accordion.Panel>
                 <PreviewLinksEditor product={product} />
               </Accordion.Panel>
@@ -127,7 +127,7 @@ const ProductDetail = ({ productId, openVariantId }: ProductDetailProps) => {
                   {product.variants.map((variant, index) => (
                     <VariantCard
                       key={variant.id}
-                      productId={product.id}
+                      product={product}
                       variant={variant}
                       position={index + 1}
                       last={index === product.variants.length - 1}

@@ -33,7 +33,7 @@ const PreviewLinksEditor = ({ product }: PreviewLinksEditorProps) => {
     <Stack gap="sm">
       {links.length === 0 ? (
         <Text c="dimmed" fz="lg">
-          Brak linków do odsłuchu.
+          Brak linków do YouTube.
         </Text>
       ) : (
         <ul className="plain-list">
@@ -72,7 +72,7 @@ const PreviewLinksEditor = ({ product }: PreviewLinksEditorProps) => {
           size="lg"
           style={{ flex: 1 }}
           placeholder="https://youtube.com/…"
-          aria-label="Nowy link do odsłuchu"
+          aria-label="Nowy link do YouTube"
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
           error={draft.trim() && !isUrl(draft.trim()) ? "Wpisz pełny adres, z https://" : null}

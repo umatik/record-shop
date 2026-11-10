@@ -113,7 +113,9 @@ describe("ProductVariantMediaService", () => {
           Buffer.from("test"),
           expect.stringMatching(
             new RegExp(
-              `^products/${expectedFolder}/variant-1-\\d+\\.${filename.split(".").pop()}$`,
+              expectedType === ProductVariantMediaType.AUDIO
+                ? `^products/${expectedFolder}/audio-\\d+\\.${filename.split(".").pop()}$`
+                : `^products/${expectedFolder}/variant-1-\\d+\\.${filename.split(".").pop()}$`,
             ),
           ),
           contentType,
@@ -152,7 +154,7 @@ describe("ProductVariantMediaService", () => {
       });
       expect(storage.save).toHaveBeenCalledWith(
         Buffer.from("mp3"),
-        expect.stringMatching(/^products\/audio\/variant-1-\d+\.mp3$/),
+        expect.stringMatching(/^products\/audio\/side-a-\d+\.mp3$/),
         "audio/mpeg",
       );
     });

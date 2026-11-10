@@ -42,7 +42,7 @@ const vinylVariantAttributes = z.strictObject({
   catalogNumber: text(100).optional(),
   country: text(100).optional(),
   pressing: z.enum(["original", "reissue"]).optional(),
-  mediaCondition: z.enum(GOLDMINE_GRADES),
+  mediaCondition: z.enum(GOLDMINE_GRADES).optional(),
   sleeveCondition: z.enum(SLEEVE_CONDITIONS),
   conditionNote: translatedText(1000).optional(),
   discogsReleaseId: z.int().positive().optional(),

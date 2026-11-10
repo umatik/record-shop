@@ -6,11 +6,11 @@ import RecordThumb from "@/components/records/RecordThumb";
 import { formatEur, variantPhoto } from "@/lib/format";
 import { THUMB_SIZE } from "@/lib/theme";
 import { describeVariant } from "@/lib/vinyl";
-import type { Variant } from "@/types/product";
+import type { Product, Variant } from "@/types/product";
 import VariantEditModal from "./VariantEditModal";
 
 type VariantCardProps = {
-  productId: number;
+  product: Product;
   variant: Variant;
   /** Kolejny numer na liście, do etykiety „Wariant 2” dla czytników ekranu. */
   position: number;
@@ -28,7 +28,7 @@ const describePressing = (attributes: Record<string, unknown>) =>
 
 /** Wariant (tłoczenie w danym stanie) jako wiersz z linią pod spodem. Kliknięcie otwiera edycję (tam też usuwanie). */
 const VariantCard = ({
-  productId,
+  product,
   variant,
   position,
   last = false,
@@ -78,7 +78,7 @@ const VariantCard = ({
         </Group>
       </UnstyledButton>
 
-      {editOpened && <VariantEditModal productId={productId} variant={variant} opened onClose={closeEdit} />}
+      {editOpened && <VariantEditModal product={product} variant={variant} opened onClose={closeEdit} />}
     </>
   );
 };

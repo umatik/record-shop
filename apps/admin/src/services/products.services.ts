@@ -29,6 +29,17 @@ export async function publishProduct(productId: number) {
   return warnings;
 }
 
+/** Plik audio (mp3/wav) do wariantu; API sam rozpoznaje typ `audio` po rozszerzeniu i typie MIME. */
+export function uploadVariantAudio(variantId: number, file: File, alt: string | null) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("sortOrder", "0");
+  form.append("isPrimary", "false");
+  // Tytuł utworu: po nim lista wyboru pomija utwór, który już ma plik.
+  if (alt) form.append("alt", alt);
+  return request(`/products/variants/${variantId}/media`, { method: "POST", form });
+}
+
 /** Zdjęcie do wariantu, za zdjęciami już dodanymi (`sortOrder`). */
 export function uploadVariantPhoto(variantId: number, file: File, sortOrder: number) {
   const form = new FormData();

@@ -9,6 +9,7 @@ import {
   unpublishProduct,
   updateProduct,
   updateVariant,
+  uploadVariantAudio,
   uploadVariantPhoto,
   replaceProductPhoto,
   setPrimaryMedia,
@@ -77,6 +78,13 @@ export function useAddVariantPhotos() {
         await uploadVariantPhoto(variantId, file, after + index + 1);
       }
     },
+  );
+}
+
+export function useAddVariantAudio() {
+  return useProductMutation(
+    ({ variantId, file, alt }: { variantId: number; file: File; alt: string | null }) =>
+      uploadVariantAudio(variantId, file, alt),
   );
 }
 

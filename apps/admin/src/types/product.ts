@@ -32,7 +32,11 @@ export type Product = {
   slug: string;
   description: string | null;
   isPublished: boolean;
-  attributes: { artists?: string[]; previewLinks?: unknown[] } & Record<string, unknown>;
+  attributes: {
+    artists?: string[];
+    previewLinks?: unknown[];
+    tracklist?: { position?: string; title: string }[];
+  } & Record<string, unknown>;
   /** Główne zdjęcie płyty (z pierwszego zdjęcia labelu albo podmienione w widoku produktu). */
   primaryPhotoUrl: string | null;
   createdAt: string;
