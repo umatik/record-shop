@@ -64,6 +64,8 @@ export type UserDetails = {
   city: string;
   postalCode: string;
   country: string;
+  /** Liczba kupionych płyt (bez anulowanych zamówień); tylko w liście `findAll`. */
+  purchasedCount?: number;
 };
 
 export type UpdateUserData = {

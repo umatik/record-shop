@@ -26,6 +26,7 @@ import {
   summarize,
 } from "@/exports/orders-export.js";
 import type { ManagedOrderScope } from "@/types/order.types.js";
+import { AccountExistsError } from "@/errors/account-exists.error.js";
 
 export class OrderController {
   constructor(
@@ -40,8 +41,16 @@ export class OrderController {
       res.status(400).json({ message: "Invalid checkout" });
       return;
     }
-    const id = await this.orderService.checkout(input.data, req.user?.userId ?? null);
-    res.status(201).json({ id });
+    try {
+      const id = await this.orderService.checkout(input.data, req.user?.userId ?? null);
+      res.status(201).json({ id });
+    } catch (error) {
+      if (error instanceof AccountExistsError) {
+        res.status(409).json({ message: error.message, code: "ACCOUNT_EXISTS" });
+        return;
+      }
+      throw error;
+    }
   };
 
   createOrder = async (req: AuthenticatedRequest, res: Response) => {

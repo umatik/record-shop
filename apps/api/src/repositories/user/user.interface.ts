@@ -24,6 +24,7 @@ export interface UserInterface {
   ): Promise<UserDetails | null>;
 
   countAll(client: PoolClient): Promise<number>;
+  softDelete(client: PoolClient, userId: number): Promise<boolean>;
 
   findByEmail(client: PoolClient, email: string): Promise<CreatedUser | null>;
 

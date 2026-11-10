@@ -99,6 +99,8 @@ const rates = [
 const copy = {
   pl: {
     conflict: "Dostępność lub cena płyt uległa zmianie. Sprawdź katalog i popraw koszyk.",
+    account: "Ten adres e-mail ma już konto. Zaloguj się, żeby kupić z zapisanym adresem.",
+    loginLink: "Zaloguj się",
     error: "Nie udało się potwierdzić zamówienia. Spróbuj ponownie.",
     added: "Dodano do koszyka",
     limit: "W koszyku są już wszystkie dostępne sztuki",
@@ -118,6 +120,8 @@ const copy = {
   },
   en: {
     conflict: "Availability or prices changed. Check the catalogue and update your cart.",
+    account: "This email already has an account. Log in to buy with your saved address.",
+    loginLink: "Log in",
     error: "Could not confirm the order. Please try again.",
     added: "Added to cart",
     limit: "All available copies are already in your cart",
@@ -137,6 +141,8 @@ const copy = {
   },
   es: {
     conflict: "El precio o la disponibilidad ha cambiado. Revisa el catálogo y el carrito.",
+    account: "Este correo ya tiene una cuenta. Inicia sesión para comprar con tu dirección guardada.",
+    loginLink: "Iniciar sesión",
     error: "No se pudo confirmar el pedido. Inténtalo de nuevo.",
     added: "Añadido al carrito",
     limit: "Ya tienes todas las unidades disponibles",
@@ -227,7 +233,7 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
   const [receipt, setReceipt] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
-  const [failure, setFailure] = useState<"error" | "conflict" | null>(null);
+  const [failure, setFailure] = useState<"error" | "conflict" | "account" | null>(null);
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
 
   async function submitOrder() {
@@ -259,7 +265,8 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
         body: JSON.stringify({...body, key: attempt.current.key}),
       });
       if (!response.ok) {
-        setFailure([404, 409].includes(response.status) ? "conflict" : "error");
+        const failed = await response.json().catch(() => null);
+        setFailure(failed?.code === "ACCOUNT_EXISTS" ? "account" : [404, 409].includes(response.status) ? "conflict" : "error");
         return;
       }
       const {id} = await response.json();
@@ -400,7 +407,9 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
           </div>
           <hr className="shipping-hairline"/>
 
-          {failure && step === "review" && <p role="alert">{c[failure]}</p>}
+          {failure && step === "review" && (failure === "account"
+            ? <p role="alert">{c.account} <Link href={`/${lang}/login`}>{c.loginLink}</Link></p>
+            : <p role="alert">{c[failure]}</p>)}
 
           <button className="close" disabled={sending} aria-busy={sending} onClick={() => {
             if (step === "cart") navigate("shipping");

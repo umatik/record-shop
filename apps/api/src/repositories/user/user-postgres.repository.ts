@@ -39,6 +39,23 @@ export class UserPostgresRepository implements UserInterface {
     return Number(result.rows[0].total);
   }
 
+  /** Miękkie usunięcie konta: zamówienia i dane zostają, konto przestaje istnieć dla logowania i listy. */
+  async softDelete(client: PoolClient, userId: number): Promise<boolean> {
+    const result = await client.query(
+      `
+        UPDATE users
+        SET is_deleted = TRUE,
+            deleted_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+          AND is_deleted = FALSE
+      `,
+      [userId],
+    );
+
+    return result.rowCount === 1;
+  }
+
   async findAll(
     client: PoolClient,
     page: number,
@@ -56,7 +73,15 @@ export class UserPostgresRepository implements UserInterface {
                ucd.address,
                ucd.city,
                ucd.postal_code AS "postalCode",
-               ucd.country
+               ucd.country,
+               COALESCE((
+                 SELECT SUM(oi.quantity)
+                 FROM orders o
+                        JOIN order_items oi ON oi.order_id = o.id
+                 WHERE o.user_id = u.id
+                   AND o.is_deleted = FALSE
+                   AND o.status <> 'cancelled'
+               ), 0)::int AS "purchasedCount"
         FROM users u
                JOIN user_contact_details ucd
                     ON ucd.user_id = u.id

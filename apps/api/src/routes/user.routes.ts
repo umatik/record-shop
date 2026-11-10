@@ -110,6 +110,38 @@ export const createUserRouter = (
 
   /**
    * @openapi
+   * /users/{id}:
+   *   delete:
+   *     tags:
+   *       - Users
+   *     summary: Delete a user account (soft delete)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: User deleted
+   *       400:
+   *         description: Invalid id, or attempt to delete own account
+   *       401:
+   *       403:
+   *       404:
+   *         description: User not found
+   */
+  router.delete(
+    "/:id",
+    authenticationMiddleware,
+    requirePermission(authorizationService, "users:delete"),
+    userController.deleteUser,
+  );
+
+  /**
+   * @openapi
    * /users/register:
    *   post:
    *     tags:

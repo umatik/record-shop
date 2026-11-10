@@ -7,7 +7,8 @@ export async function POST(request: Request) {
       method: "POST", headers: { "Content-Type": "application/json", ...(token && {authorization:"Bearer "+token}) },
       body: JSON.stringify(await request.json()), signal: AbortSignal.timeout(15000),
     });
-    return Response.json(response.ok ? await response.json() : { error: "Checkout failed" }, { status: response.status });
+    const body = await response.json().catch(() => null);
+    return Response.json(response.ok ? body : { error: "Checkout failed", code: body?.code ?? null }, { status: response.status });
   } catch {
     return Response.json({ error: "Checkout unavailable" }, { status: 503 });
   }

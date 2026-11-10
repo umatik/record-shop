@@ -24,6 +24,7 @@ import { orderMail } from "./customer-mail.js";
 import { createHash } from "node:crypto";
 import type { Checkout } from "@/validators/order.validator.js";
 import { AppError } from "@/errors/app.error.js";
+import { AccountExistsError } from "@/errors/account-exists.error.js";
 
 const deliveryFees = {
   InPost: [400, 1600], DHL: [500, 2000], "Poczta Polska": [450, 1800],
@@ -46,6 +47,12 @@ export class OrderService {
     let id: number;
     try {
       await client.query("BEGIN");
+      if (!userId) {
+        // Zakup bez logowania na e-mail istniejącego konta: nie przypinamy zamówienia do cudzego konta.
+        const account = await client.query(
+          "SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND is_deleted = FALSE LIMIT 1", [shipping.email]);
+        if (account.rowCount) throw new AccountExistsError();
+      }
       const inserted = await client.query(
         `INSERT INTO orders(status, checkout_key, checkout_hash, shipping, carrier, delivery_eur, delivery_pln, user_id)
          VALUES ('pending', $1, $2, $3, $4, $5, $6, $7)

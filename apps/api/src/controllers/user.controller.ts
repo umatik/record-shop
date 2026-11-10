@@ -41,6 +41,38 @@ export class UserController {
     });
   };
 
+  /** Usunięcie konta przez admina. Własnego konta nie da się usunąć z panelu. */
+  deleteUser = async (req: AuthenticatedRequest, res: Response) => {
+    const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      res.status(400).json({
+        message: "Invalid user id",
+      });
+      return;
+    }
+
+    if (userId === Number(req.user?.userId)) {
+      res.status(400).json({
+        message: "You cannot delete your own account",
+      });
+      return;
+    }
+
+    const deleted = await this.userService.deleteUser(userId);
+
+    if (!deleted) {
+      res.status(404).json({
+        message: "User not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      message: "User deleted",
+    });
+  };
+
   /** Zalogowany użytkownik i jego uprawnienia, np. żeby panel wiedział, co pokazać. */
   getMe = async (req: AuthenticatedRequest, res: Response) => {
     const userId = Number(req.user?.userId);

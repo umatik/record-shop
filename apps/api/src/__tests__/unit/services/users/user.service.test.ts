@@ -39,6 +39,7 @@ describe("UserService", () => {
       countAll: jest.fn(),
       findByEmail: jest.fn(),
       resetPassword: jest.fn(),
+      softDelete: jest.fn(),
     };
 
     userContactRepository = {

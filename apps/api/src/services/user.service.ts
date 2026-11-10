@@ -25,6 +25,17 @@ export class UserService {
     private pool: Database,
   ) {}
 
+  /** Usuwa konto miękko; zwraca false, gdy użytkownika nie ma albo jest już usunięty. */
+  async deleteUser(userId: number): Promise<boolean> {
+    const client = await this.pool.connect();
+
+    try {
+      return await this.userRepository.softDelete(client, userId);
+    } finally {
+      client.release();
+    }
+  }
+
   async getUsers(
     page: number,
     limit: number,
