@@ -127,7 +127,7 @@ export const resetCopy = {
     invalid: "Link wygasł albo został już użyty.",
     requestNew: "Poproś o nowy link",
     back: "Wróć do logowania",
-    forgotLink: "Nie pamiętam hasła",
+    forgotLink: "Przypomnij hasło",
     error: "Nie udało się wysłać. Spróbuj ponownie za chwilę.",
   },
   en: {
@@ -157,7 +157,7 @@ export const resetCopy = {
     invalid: "El enlace ha caducado o ya se ha usado.",
     requestNew: "Pedir un enlace nuevo",
     back: "Volver a iniciar sesión",
-    forgotLink: "¿Olvidaste tu contraseña?",
+    forgotLink: "Recordar contraseña",
     error: "No se pudo enviar. Inténtalo de nuevo en un momento.",
   },
 } as const satisfies Record<Locale, Record<string, string>>;

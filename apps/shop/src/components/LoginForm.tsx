@@ -43,7 +43,6 @@ export function LoginForm({ lang, providerError = false }: { lang: Locale; provi
       </Link>
       <h1 id="login-title">{t.login}</h1>
       {error && <p role="alert" className="auth-alert"><IconAlertCircle size={18} aria-hidden />{error}</p>}
-      {error && <Link className="auth-link" href={`/${lang}/forgot-password`}>{resetCopy[lang].forgotLink}</Link>}
       <form
         onSubmit={async (event) => {
           event.preventDefault();
@@ -82,9 +81,14 @@ export function LoginForm({ lang, providerError = false }: { lang: Locale; provi
           {t.login}
         </button>
       </form>
-      <Link className="secondary-action" href={`/${lang}/register`}>
-        {t.register}
-      </Link>
+      <div className="login-links">
+        <Link className="secondary-action" href={`/${lang}/register`}>
+          {t.register}
+        </Link>
+        <Link className="secondary-action" href={`/${lang}/forgot-password`}>
+          {resetCopy[lang].forgotLink}
+        </Link>
+      </div>
       <p className="login-or">{l.or}</p>
       {(["Google", "Apple ID"] as const).map((provider) => (
         <form key={provider} method="get" action={"/api/account/" + (provider === "Google" ? "google" : "apple")}>

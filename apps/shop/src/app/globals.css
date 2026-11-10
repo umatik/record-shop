@@ -176,7 +176,7 @@ dialog button.close {
 }
 .price button:hover,
 dialog button.close:hover {
-  background: #26281f;
+  background: #4a5134;
   color: white;
 }
 footer {
@@ -800,6 +800,11 @@ footer .discogs-credit {
 .login-page .login-submit, .login-page .account-provider, .login-page .secondary-action { min-height: 44px; border-radius: 4px; }
 .login-page small { display: block; margin-top: 16px; }
 .login-submit { width: 100%; background: #26281f; color: white; border-radius: 4px; }
+/* Wszystkie przyciski primary (ciemne) mają ten sam hover. */
+.login-submit:hover, .close:hover, .variant-cart-button:hover, .price button:hover, dialog button.close:hover { background: #4a5134; color: white; }
+a.close { text-decoration: none; }
+.login-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+.login-links .secondary-action { margin-top: 0; min-width: 0; text-align: center; font-size: 14px; padding-inline: 8px; }
 .login-or { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
 .login-or::before, .login-or::after { content: ""; flex: 1; border-top: 1px solid #818570; }
 

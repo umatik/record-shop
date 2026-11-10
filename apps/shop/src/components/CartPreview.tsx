@@ -99,7 +99,8 @@ const rates = [
 const copy = {
   pl: {
     conflict: "Dostępność lub cena płyt uległa zmianie. Sprawdź katalog i popraw koszyk.",
-    account: "Ten adres e-mail ma już konto. Zaloguj się, żeby kupić z zapisanym adresem.",
+    account: "Ten adres e-mail ma już konto.",
+    accountHint: "Zaloguj się, żeby kupić z zapisanym adresem.",
     loginLink: "Zaloguj się",
     error: "Nie udało się potwierdzić zamówienia. Spróbuj ponownie.",
     added: "Dodano do koszyka",
@@ -120,7 +121,8 @@ const copy = {
   },
   en: {
     conflict: "Availability or prices changed. Check the catalogue and update your cart.",
-    account: "This email already has an account. Log in to buy with your saved address.",
+    account: "This email already has an account.",
+    accountHint: "Log in to buy with your saved address.",
     loginLink: "Log in",
     error: "Could not confirm the order. Please try again.",
     added: "Added to cart",
@@ -141,7 +143,8 @@ const copy = {
   },
   es: {
     conflict: "El precio o la disponibilidad ha cambiado. Revisa el catálogo y el carrito.",
-    account: "Este correo ya tiene una cuenta. Inicia sesión para comprar con tu dirección guardada.",
+    account: "Este correo ya tiene una cuenta.",
+    accountHint: "Inicia sesión para comprar con tu dirección guardada.",
     loginLink: "Iniciar sesión",
     error: "No se pudo confirmar el pedido. Inténtalo de nuevo.",
     added: "Añadido al carrito",
@@ -233,6 +236,8 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
   const [receipt, setReceipt] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
+  // Set when the buyer leaves the review step to sign in; a successful sign-in then brings them back to the summary.
+  const resumeReview = useRef(false);
   const [failure, setFailure] = useState<"error" | "conflict" | "account" | null>(null);
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
 
@@ -343,6 +348,15 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
   return (
     <SessionContext.Provider value={{email: sessionEmail, signOut}}><CartContext.Provider value={open}><CountContext.Provider value={lines.reduce((n, line) => n + line.count, 0)}>
       <LoginContext.Provider value={provider => {
+        if (provider && resumeReview.current) {
+          resumeReview.current = false;
+          setShipping(previous => ({...previous, account: "member", provider}));
+          setFailure(null);
+          setStep("review");
+          router.replace(`/${lang}/cart`);
+          return;
+        }
+        resumeReview.current = false;
         if (provider) {
           // After signing in, the customer lands on the homepage; the cart stays as it was.
           setShipping(previous => ({...previous, account: "member", provider}));
@@ -408,13 +422,15 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
           <hr className="shipping-hairline"/>
 
           {failure && step === "review" && (failure === "account"
-            ? <p role="alert">{c.account} <Link href={`/${lang}/login`}>{c.loginLink}</Link></p>
+            ? <p role="alert">{c.account}<br/>{c.accountHint}</p>
             : <p role="alert">{c[failure]}</p>)}
 
-          <button className="close" disabled={sending} aria-busy={sending} onClick={() => {
-            if (step === "cart") navigate("shipping");
-            else void submitOrder();
-          }}>{step === "cart" ? (!sessionEmail ? delivery.guest : delivery.title) : c.confirm}</button>
+          {failure === "account" && step === "review"
+            ? <Link className="close" href={`/${lang}/login`} onClick={() => { resumeReview.current = true; }}>{c.loginLink}</Link>
+            : <button className="close" disabled={sending} aria-busy={sending} onClick={() => {
+              if (step === "cart") navigate("shipping");
+              else void submitOrder();
+            }}>{step === "cart" ? (!sessionEmail ? delivery.guest : delivery.title) : c.confirm}</button>}
           {step === "cart" && <button className="secondary-action" type="button" onClick={clearCart}>{c.clearCart}</button>}
           {step === "review" && <button className="secondary-action" onClick={() => navigate("shipping")}>{delivery.backToShipping}
           </button>}
