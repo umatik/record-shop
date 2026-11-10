@@ -57,10 +57,11 @@ export async function GET(req: NextRequest, { params }: Context) {
     });
     return NextResponse.json({ email: me.ok ? (await me.json()).user?.email : null });
   }
-  if (action === "shipping") {
+  if (action === "shipping" || action === "orders") {
     const token = req.cookies.get(sessionName)?.value;
     if (!token) return new Response(null, { status: 401 });
-    const result = await fetch(new URL("/customer/me/shipping", apiOrigin), {
+    const path = action === "shipping" ? "/customer/me/shipping" : "/customer/me/orders";
+    const result = await fetch(new URL(path, apiOrigin), {
       headers: { authorization: "Bearer " + token },
       cache: "no-store",
     });
@@ -90,5 +91,51 @@ export async function GET(req: NextRequest, { params }: Context) {
     return response;
   } catch {
     return NextResponse.redirect(new URL("/" + lang + "/login?error=provider", origin));
+  }
+}
+
+function sameOrigin(req: NextRequest) {
+  return req.headers.get("origin") === (process.env.SHOP_ORIGIN ?? req.nextUrl.origin);
+}
+
+/** Signed-in customer updates the saved shipping details. */
+export async function PUT(req: NextRequest, { params }: Context) {
+  const { action } = await params;
+  if (!sameOrigin(req)) return new Response(null, { status: 403 });
+  if (action !== "shipping") return new Response(null, { status: 404 });
+  const token = req.cookies.get(sessionName)?.value;
+  if (!token) return new Response(null, { status: 401 });
+  try {
+    const result = await fetch(new URL("/customer/me/shipping", apiOrigin), {
+      method: "PUT",
+      headers: { "content-type": "application/json", authorization: "Bearer " + token },
+      body: JSON.stringify(await req.json()),
+      signal: AbortSignal.timeout(8000),
+    });
+    return new Response(null, { status: result.status });
+  } catch {
+    return new Response(null, { status: 503 });
+  }
+}
+
+/** Signed-in customer closes their account and the session cookie is cleared. */
+export async function DELETE(req: NextRequest, { params }: Context) {
+  const { action } = await params;
+  if (!sameOrigin(req)) return new Response(null, { status: 403 });
+  if (action !== "me") return new Response(null, { status: 404 });
+  const token = req.cookies.get(sessionName)?.value;
+  if (!token) return new Response(null, { status: 401 });
+  try {
+    const result = await fetch(new URL("/customer/me", apiOrigin), {
+      method: "DELETE",
+      headers: { authorization: "Bearer " + token },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!result.ok) return new Response(null, { status: result.status });
+    const response = new NextResponse(null, { status: 204 });
+    response.cookies.delete(sessionName);
+    return response;
+  } catch {
+    return new Response(null, { status: 503 });
   }
 }

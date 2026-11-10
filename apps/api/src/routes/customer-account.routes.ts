@@ -229,6 +229,95 @@ customerRouter.get("/me/shipping", authenticationMiddleware, async (req: Authent
     country: c?.country ?? "",
   });
 });
+const shippingSchema = z.object({
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().min(1).max(100),
+  phone: z.string().trim().min(1).max(50),
+  street: z.string().trim().min(1).max(255),
+  postal: z.string().trim().min(1).max(20),
+  city: z.string().trim().min(1).max(100),
+  country: z.string().trim().min(1).max(100),
+});
+customerRouter.put("/me/shipping", authenticationMiddleware, async (req: AuthenticatedRequest, res) => {
+  const data = shippingSchema.safeParse(req.body);
+  if (!data.success || !req.user) {
+    res.sendStatus(400);
+    return;
+  }
+  const d = data.data;
+  await pool.query(
+    `INSERT INTO user_contact_details(user_id,first_name,last_name,phone,address,city,postal_code,country)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    ON CONFLICT (user_id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name,
+      phone=EXCLUDED.phone, address=EXCLUDED.address, city=EXCLUDED.city,
+      postal_code=EXCLUDED.postal_code, country=EXCLUDED.country, updated_at=now()`,
+    [req.user.userId, d.firstName, d.lastName, d.phone, d.street, d.city, d.postal, d.country],
+  );
+  res.sendStatus(204);
+});
+customerRouter.get("/me/orders", authenticationMiddleware, async (req: AuthenticatedRequest, res) => {
+  const orders = await pool.query(
+    `SELECT id, status, created_at, paid_at, shipped_at, cancelled_at, carrier, delivery_eur
+    FROM orders WHERE user_id = $1 AND NOT is_deleted ORDER BY created_at DESC, id DESC`,
+    [req.user?.userId],
+  );
+  const items = orders.rowCount
+    ? await pool.query(
+        `SELECT i.order_id, i.quantity, i.price_eur, p.title, v.attributes->>'catalogNumber' AS edition
+        FROM order_items i JOIN product_variants v ON v.id = i.product_variant_id
+        JOIN products p ON p.id = v.product_id
+        WHERE i.order_id = ANY($1::bigint[]) ORDER BY i.id`,
+        [orders.rows.map((o) => o.id)],
+      )
+    : { rows: [] };
+  res.set("Cache-Control", "no-store").json(
+    orders.rows.map((o) => {
+      const lines = items.rows.filter((i) => String(i.order_id) === String(o.id));
+      return {
+        id: Number(o.id),
+        status: o.status,
+        createdAt: o.created_at,
+        paidAt: o.paid_at,
+        shippedAt: o.shipped_at,
+        cancelledAt: o.cancelled_at,
+        carrier: o.carrier,
+        deliveryEur: Number(o.delivery_eur ?? 0),
+        items: lines.map((i) => ({
+          title: i.title,
+          edition: i.edition,
+          quantity: Number(i.quantity),
+          priceEur: Number(i.price_eur),
+        })),
+      };
+    }),
+  );
+});
+customerRouter.delete("/me", authenticationMiddleware, async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.sendStatus(401);
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Orders stay as business records; the account itself is anonymised and closed.
+    await client.query("DELETE FROM user_contact_details WHERE user_id = $1", [userId]);
+    await client.query("DELETE FROM customer_identities WHERE user_id = $1", [userId]);
+    await client.query("UPDATE password_reset_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL", [userId]);
+    await client.query(
+      `UPDATE users SET is_deleted = TRUE, email = $2, password_hash = $3 WHERE id = $1`,
+      [userId, `deleted-${userId}@deleted.invalid`, await bcrypt.hash(randomBytes(32).toString("hex"), 10)],
+    );
+    await client.query("COMMIT");
+    res.sendStatus(204);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+});
 customerRouter.post("/email-available", async (req, res) => {
   const email = emailSchema.safeParse(String(req.body?.email ?? "").trim().toLowerCase());
   if (!email.success) {

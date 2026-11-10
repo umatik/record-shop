@@ -851,3 +851,34 @@ dialog.cart-added { inset: 0; margin: auto; width: min(360px, calc(100% - 32px))
 .login-page .mantine-PasswordInput-visibilityToggle, .login-page .mantine-PasswordInput-section button { border-radius: 4px; }
 header a.header-account { border-radius: 4px; }
 .secondary-action:hover { background: #26281f0d; }
+
+.account-details { display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; margin: 0 0 20px; }
+.account-details dt { font-weight: 700; }
+.account-details dd { margin: 0; overflow-wrap: anywhere; }
+
+.account-menu-item { font-size: 1rem; line-height: 1.5; font-weight: 400; }
+.account-menu-label { font-size: 0.875rem; padding-bottom: 12px; }
+
+.account-subtitle { font-size: 1.15rem; margin: 0 0 12px; }
+.account-form { display: grid; gap: 16px; margin-bottom: 8px; }
+.account-form .login-submit { margin-top: 4px; }
+.account-orders { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 16px; }
+.account-orders > li { border: 1px solid #cdd1bf; border-radius: 4px; padding: 12px; background: #fff; }
+.account-order-head { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+.account-order-line { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding-block: 2px; }
+.account-order-total { border-top: 1px solid #cdd1bf; margin-top: 6px; padding-top: 6px; }
+.account-danger { border-color: #963f36; color: #963f36; }
+
+.login-page section .account-delete-text { text-align: left; }
+.login-page section .account-danger-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 4px; border: 0; border-radius: 4px; background: #963f36; color: #fff; }
+.login-page section .account-danger-btn:disabled { opacity: 0.6; }
+.login-page section .account-back { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 16px; border: 1px solid #818570; border-radius: 4px; text-decoration: none; }
+
+/* Two stacked buttons or links always sit 16px apart. */
+.login-page .secondary-action { margin-top: 16px; }
+.login-page .account-provider { margin-top: 0; }
+.login-page form + form .account-provider { margin-top: 16px; }
+.checkout .close { margin-top: 16px; }
+.checkout .secondary-action { margin-top: 16px; }
+dialog.cart-added .secondary-action { margin-top: 16px; }
+.login-page section .account-danger-btn { margin-top: 16px; }

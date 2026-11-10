@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import {Select} from "@mantine/core";
 import {usePathname, useRouter} from "next/navigation";
+import {AccountMenu} from "./AccountMenu";
 import {ShippingDetails, shippingCopy, emptyShipping, savePrefill, type Shipping} from "./ShippingDetails";
-import {IconDisc, IconLogout, IconMinus, IconPlus, IconShoppingCart, IconTrash, IconUser, IconX} from "@tabler/icons-react";
+import {IconDisc, IconMinus, IconPlus, IconShoppingCart, IconTrash, IconUser, IconX} from "@tabler/icons-react";
 import {formatPrice, type Price} from "@/lib/price";
 import {messages, type Locale} from "@/app/messages";
 
@@ -80,8 +81,7 @@ export function HeaderCart({lang}: { lang: Locale }) {
   const a = accountCopy[lang];
   return <>
     {session.email
-      ? <button className="header-account" onClick={session.signOut} title={session.email}
-                aria-label={a.signOut + " (" + session.email + ")"}><IconLogout size={20} aria-hidden/></button>
+      ? <AccountMenu lang={lang} email={session.email} signOut={session.signOut}/>
       : <Link className="header-account" href={`/${lang}/login`} aria-label={a.signIn} title={a.signIn}>
         <IconUser size={20} aria-hidden/></Link>}
     <button onClick={() => open()} aria-label={messages[lang].cart + (count > 0 ? ` (${count})` : "")}>
@@ -407,8 +407,6 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
             else void submitOrder();
           }}>{step === "cart" ? (!sessionEmail ? delivery.guest : delivery.title) : c.confirm}</button>
           {step === "cart" && <button className="secondary-action" type="button" onClick={clearCart}>{c.clearCart}</button>}
-          {step === "cart" && sessionEmail &&
-              <button className="secondary-action" onClick={signOut}>{accountCopy[lang].signOut}</button>}
           {step === "review" && <button className="secondary-action" onClick={() => navigate("shipping")}>{delivery.backToShipping}
           </button>}
         </>}

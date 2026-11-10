@@ -161,3 +161,33 @@ export const resetCopy = {
     error: "No se pudo enviar. Inténtalo de nuevo en un momento.",
   },
 } as const satisfies Record<Locale, Record<string, string>>;
+
+export const accountMenuCopy = {
+  pl: { myData: "Moje dane", signOut: "Wyloguj się", title: "Moje dane", back: "Wróć do sklepu", empty: "Nie masz jeszcze zapisanych danych do wysyłki." },
+  en: { myData: "My details", signOut: "Sign out", title: "My details", back: "Back to shop", empty: "You have no saved shipping details yet." },
+  es: { myData: "Mis datos", signOut: "Cerrar sesión", title: "Mis datos", back: "Volver a la tienda", empty: "Aún no tienes datos de envío guardados." },
+} as const satisfies Record<Locale, Record<string, string>>;
+
+export const accountPageCopy = {
+  pl: {
+    saveData: "Zapisz dane", saved: "Dane zostały zapisane.", saveFailed: "Nie udało się zapisać danych. Spróbuj ponownie.",
+    orders: "Historia zamówień", noOrders: "Nie masz jeszcze zamówień.", order: "Zamówienie", delivery: "Dostawa", total: "Razem",
+    statuses: { pending: "Czeka na płatność", paid: "Opłacone", shipped: "Wysłane", delivered: "Doręczone", cancelled: "Anulowane" } as Record<string, string>,
+    deleteTitle: "Usuń konto", deleteText: "Konto zostanie zamknięte, a dane kontaktowe usunięte. Zamówienia zostaną w historii sklepu. Tej operacji nie da się cofnąć.",
+    deleteAction: "Usuń konto", deleteConfirm: "Tak, usuń konto", deleteFailed: "Nie udało się usunąć konta. Spróbuj ponownie.",
+  },
+  en: {
+    saveData: "Save details", saved: "Your details have been saved.", saveFailed: "Could not save your details. Try again.",
+    orders: "Order history", noOrders: "You have no orders yet.", order: "Order", delivery: "Delivery", total: "Total",
+    statuses: { pending: "Awaiting payment", paid: "Paid", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" } as Record<string, string>,
+    deleteTitle: "Delete account", deleteText: "The account will be closed and your contact details removed. Orders stay in the shop history. This cannot be undone.",
+    deleteAction: "Delete account", deleteConfirm: "Yes, delete my account", deleteFailed: "Could not delete the account. Try again.",
+  },
+  es: {
+    saveData: "Guardar datos", saved: "Los datos se han guardado.", saveFailed: "No se pudieron guardar los datos. Inténtalo de nuevo.",
+    orders: "Historial de pedidos", noOrders: "Aún no tienes pedidos.", order: "Pedido", delivery: "Envío", total: "Total",
+    statuses: { pending: "Pendiente de pago", paid: "Pagado", shipped: "Enviado", delivered: "Entregado", cancelled: "Cancelado" } as Record<string, string>,
+    deleteTitle: "Eliminar cuenta", deleteText: "La cuenta se cerrará y tus datos de contacto se eliminarán. Los pedidos quedan en el historial de la tienda. Esta acción no se puede deshacer.",
+    deleteAction: "Eliminar cuenta", deleteConfirm: "Sí, eliminar mi cuenta", deleteFailed: "No se pudo eliminar la cuenta. Inténtalo de nuevo.",
+  },
+} as const satisfies Record<Locale, Record<string, unknown>>;
