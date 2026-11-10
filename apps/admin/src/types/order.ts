@@ -3,7 +3,7 @@ import type { Pagination } from "./common";
 export type OrderStatus = "pending" | "paid" | "shipped" | "delivered" | "cancelled";
 
 export type OrderBuyer = {
-  id: number;
+  id: number | null;
   email: string;
   firstName: string | null;
   lastName: string | null;

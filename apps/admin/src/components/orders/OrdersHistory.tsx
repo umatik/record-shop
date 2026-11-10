@@ -100,7 +100,7 @@ const OrdersHistory = ({ status, from = "", to = "", initialSearch = "" }: Order
   };
 
   return (
-    <Stack component="section" aria-labelledby="orders-title" gap="lg" maw={640} mx="auto">
+    <Stack component="section" aria-labelledby="orders-title" gap="lg" maw={640} mx={{ base: "auto", sm: 0 }}>
       <PageTitle
         id="orders-title"
         title="Zamówienia"

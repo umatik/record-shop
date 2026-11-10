@@ -52,7 +52,7 @@ export const ORDER_STATUSES = ["pending", "paid", "shipped", "delivered", "cance
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export type OrderBuyer = {
-  id: number;
+  id: number | null;
   email: string;
   firstName: string | null;
   lastName: string | null;

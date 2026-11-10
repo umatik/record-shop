@@ -3,6 +3,7 @@ import "../globals.css";
 
 import type { Metadata, Viewport } from "next";
 
+import { CartProvider } from "@/components/CartPreview";
 import { Providers } from "../providers";
 
 import { isLocale, locales, messages } from "../messages";
@@ -34,7 +35,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
         <meta name="darkreader-lock" />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers><CartProvider lang={lang}>{children}</CartProvider></Providers>
       </body>
     </html>
   );

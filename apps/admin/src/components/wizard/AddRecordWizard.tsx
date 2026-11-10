@@ -250,7 +250,7 @@ const AddRecordWizard = ({ newId, initial }: { newId: string; initial?: { draft:
     <Stack
       gap="lg"
       maw={640}
-      mx="auto"
+      mx={{ base: "auto", sm: 0 }}
       mih="calc(100dvh - var(--app-shell-header-height) - 2 * var(--mantine-spacing-md))"
     >
       <WizardHeader

@@ -9,6 +9,7 @@ export const createOrderRouter = (
   authorizationService: AuthorizationService,
 ) => {
   const router = Router();
+  router.post("/checkout", (req,res,next) => req.headers.authorization ? authenticationMiddleware(req,res,next) : next(), orderController.checkout);
 
   /**
    * @openapi

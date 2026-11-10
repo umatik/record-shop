@@ -191,7 +191,7 @@ const ProductsList = ({ status, view = "products", initialSearch = "", narrowed 
   );
 
   return (
-    <Stack component="section" aria-labelledby="products-title" gap="lg" maw={640} mx="auto">
+    <Stack component="section" aria-labelledby="products-title" gap="lg" w="100%">
       <PageTitle
         id="products-title"
         title={copy.title}
@@ -217,7 +217,7 @@ const ProductsList = ({ status, view = "products", initialSearch = "", narrowed 
 
       {!isDraft && (
         <SegmentedControl
-          fullWidth
+          style={{ alignSelf: "flex-start" }}
           size="lg"
           value={view}
           onChange={changeView}

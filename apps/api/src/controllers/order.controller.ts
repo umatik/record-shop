@@ -11,7 +11,7 @@ import {
 import { z } from "zod";
 import type { Request } from "express";
 import { OrderService } from "@/services/order.service.js";
-import { createOrderSchema } from "@/validators/order.validator.js";
+import { checkoutSchema, createOrderSchema } from "@/validators/order.validator.js";
 import { formatZodIssues } from "@/validators/helpers/zod.js";
 import type { AuthenticatedRequest } from "@/middleware/authentication.middleware.js";
 import { parseId } from "@/validators/helpers/id.validator.js";
@@ -33,6 +33,16 @@ export class OrderController {
     private authorizationService: AuthorizationService,
     private emailService: EmailService,
   ) {}
+
+  checkout = async (req: AuthenticatedRequest, res: Response) => {
+    const input = checkoutSchema.safeParse(req.body);
+    if (!input.success) {
+      res.status(400).json({ message: "Invalid checkout" });
+      return;
+    }
+    const id = await this.orderService.checkout(input.data, req.user?.userId ?? null);
+    res.status(201).json({ id });
+  };
 
   createOrder = async (req: AuthenticatedRequest, res: Response) => {
     const parsed = createOrderSchema.safeParse(req.body ?? {});

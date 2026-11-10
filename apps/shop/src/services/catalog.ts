@@ -36,46 +36,28 @@ type Product = {
   variants: Variant[];
 };
 
-function toRelease(product: Product, variant: Variant) {
-  const photos = variant.media.filter((m) => m.type === "photo");
-  const photo = (photos.find((m) => m.isPrimary) ?? photos[0])?.url || product.primaryPhotoUrl;
+type CatalogVariant = Pick<Variant, "id" | "priceEur" | "pricePln" | "quantity" | "attributes"> & {
+  productId: number; title: string; artist: string; photo: string | null;
+};
+function toRelease({ attributes, photo, ...variant }: CatalogVariant) {
   return {
-    id: variant.id,
-    productId: product.id,
-    discogsReleaseId: variant.attributes.discogsReleaseId,
-    discogsMasterId: product.attributes.discogsMasterId,
-    detail: [
-      variant.attributes.label,
-      variant.attributes.year,
-      variant.attributes.catalogNumber,
-      variant.attributes.mediaCondition,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    title: product.title,
-    artist: product.attributes.artists?.join(", ") ?? "",
-    format: variant.attributes.format,
-    priceEur: variant.priceEur,
-    pricePln: variant.pricePln ?? null,
-    quantity: variant.quantity,
+    ...variant,
+    detail: [attributes.label, attributes.year, attributes.catalogNumber].filter(Boolean).join(" · "),
+    condition: attributes.mediaCondition,
+    format: attributes.format,
     photo: photo ? mediaUrl(photo) : null,
   };
 }
-
 export type Release = ReturnType<typeof toRelease>;
 
-export async function getCatalog(page: number) {
-  const url = new URL("/products", process.env.API_URL ?? "http://localhost:3000");
-  url.search = new URLSearchParams({ type: "vinyl", available: "true", page: String(page), limit: "8" }).toString();
+export async function getCatalog(page: number, sort: string) {
+  const url = new URL("/products/catalog-variants", process.env.API_URL ?? "http://localhost:3000");
+  url.search = new URLSearchParams({ sort, page: String(page), limit: "8" }).toString();
   const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error("Catalogue API: " + res.status);
-  const data: { copies: number; products: Product[]; pagination: { total: number; totalPages: number } } =
+  const data: { copies: number; variants: CatalogVariant[]; pagination: { total: number; totalPages: number } } =
     await res.json();
-  return {
-    copies: data.copies,
-    releases: data.products.flatMap((p) => p.variants.filter((v) => v.quantity > 0).map((v) => toRelease(p, v))),
-    ...data.pagination,
-  };
+  return { copies: data.copies, releases: data.variants.map(toRelease), ...data.pagination };
 }
 
 export async function getProduct(id: number): Promise<Product | null> {

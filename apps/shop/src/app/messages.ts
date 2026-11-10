@@ -1,5 +1,9 @@
 export const messages = {
   en: {
+    sort: "Sort by", fields: { artist: "Artist", title: "Title", price: "Price" },
+    asc: "ascending", desc: "descending", condition: "Record condition",
+    gridView: "Grid view",
+    listView: "List view",
     availableCount: (n: number) => `${n} in stock`,
     inStock: "Records in stock",
     shown: "Variants shown",
@@ -28,6 +32,10 @@ export const messages = {
     language: "Language",
   },
   es: {
+    sort: "Ordenar por", fields: { artist: "Artista", title: "Título", price: "Precio" },
+    asc: "ascendente", desc: "descendente", condition: "Estado del disco",
+    gridView: "Vista de cuadrícula",
+    listView: "Vista de lista",
     availableCount: (n: number) => `${n} ${n === 1 ? "unidad disponible" : "unidades disponibles"}`,
     inStock: "Discos en stock",
     shown: "Variantes visibles",
@@ -56,6 +64,10 @@ export const messages = {
     language: "Idioma",
   },
   pl: {
+    sort: "Sortuj", fields: { artist: "Artysta", title: "Tytuł", price: "Cena" },
+    asc: "rosnąco", desc: "malejąco", condition: "Stan płyty",
+    gridView: "Widok siatki",
+    listView: "Widok listy",
     availableCount: (n: number) => `Na stanie: ${n} szt.`,
     inStock: "Płyty na stanie",
     shown: "Wczytane warianty",

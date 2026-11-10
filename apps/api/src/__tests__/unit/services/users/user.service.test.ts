@@ -224,7 +224,8 @@ describe("UserService", () => {
       );
 
       expect(mockClient.query).toHaveBeenNthCalledWith(1, "BEGIN");
-      expect(mockClient.query).toHaveBeenNthCalledWith(2, "COMMIT");
+      expect(mockClient.query).toHaveBeenNthCalledWith(2, expect.stringContaining("customer_mail"), expect.any(Array));
+      expect(mockClient.query).toHaveBeenNthCalledWith(3, "COMMIT");
       expect(mockClient.release).toHaveBeenCalledTimes(1);
     });
 

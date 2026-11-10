@@ -1,44 +1,70 @@
 "use client";
 import { formatPrice } from "@/lib/price";
-import { CartPreview } from "@/components/CartPreview";
+import { HeaderCart, useCart } from "@/components/CartPreview";
 import ShopFooter from "@/components/ShopFooter";
 import Image from "next/image";
-import { IconShoppingCart } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { IconLayoutGrid, IconList } from "@tabler/icons-react";
 import type { Release } from "@/services/catalog";
 
 import { useCatalog } from "@/hooks/useCatalog";
 import Link from "next/link";
 import { locales, messages, type Locale } from "./messages";
+const wideScreen = "(min-width: 48em)";
+type CatalogView = "grid" | "list";
+
+function saveViewCookie(mode: CatalogView) {
+  document.cookie = `catalog-view=${mode}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+function updateViewUrl(view: CatalogView) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("view", view);
+  window.history.replaceState(null, "", url);
+}
+
 export default function Storefront({
   lang,
+  savedView,
   releases,
   failed,
   page,
   total,
   copies,
   pages,
+  sort,
 }: {
   lang: Locale;
+  savedView: CatalogView | null;
   releases: Release[];
   failed: boolean;
   page: number;
   copies: number;
   total: number;
   pages: number;
+  sort: string;
 }) {
   const { variants, marker, hasNextPage, isFetching, isFetchNextPageError, loadMore } = useCatalog(
     page,
     { releases, copies, total, totalPages: pages },
     !failed,
+    sort,
   );
   const t = messages[lang];
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [selected, setSelected] = useState<Release | null>(null);
-  function preview(release: Release | null) {
-    setSelected(release);
-    dialog.current?.showModal();
+  const requestedView = useSearchParams().get("view");
+  const view = requestedView === "grid" || requestedView === "list" ? requestedView : savedView;
+  useEffect(() => {
+    if (requestedView !== "grid" && requestedView !== "list") {
+      updateViewUrl(savedView ?? (window.matchMedia(wideScreen).matches ? "grid" : "list"));
+    }
+  }, [requestedView, savedView]);
+  function selectView(mode: CatalogView) {
+    saveViewCookie(mode);
+    updateViewUrl(mode);
   }
+  const viewParam = view ? `&view=${view}` : "";
+  const openCart = useCart();
   return (
     <>
       <header>
@@ -50,7 +76,7 @@ export default function Storefront({
           {locales.map((code) => (
             <Link
               key={code}
-              href={"/" + code}
+              href={`/${code}?sort=${sort}${viewParam}`}
               lang={code}
               hrefLang={code}
               aria-label={{ en: "English", es: "Español", pl: "Polski" }[code]}
@@ -60,10 +86,7 @@ export default function Storefront({
             </Link>
           ))}
         </nav>
-        <button onClick={() => preview(null)}>
-          <IconShoppingCart size={20} aria-hidden />
-          {t.cart}
-        </button>
+        <HeaderCart lang={lang} />
       </header>
       <main>
         <section className="hero">
@@ -79,22 +102,39 @@ export default function Storefront({
           <div className="sectionhead">
             <h2>{t.catalog}</h2>
             {!failed && (
-              <span>
-                {t.inStock}: {copies}
-              </span>
+              <div className="catalog-tools">
+                <span>{t.inStock}: {copies}</span>
+                <div className="catalog-switch">
+                  {([["grid", IconLayoutGrid, t.gridView], ["list", IconList, t.listView]] as const).map(([mode, Icon, label]) => (
+                    <button key={mode} type="button" aria-label={label} title={label} aria-pressed={view === mode}
+                      onClick={() => selectView(mode)}><Icon size={19} aria-hidden /></button>
+                  ))}
+                </div>
+              </div>
             )}
             <span role="status" className="sr-only">
               {t.shown}: {variants.length}
             </span>
           </div>
+          <nav className="catalog-sort" aria-label={t.sort}>
+            {(["artist", "title", "price"] as const).map(field => {
+              const ascending = sort === field + "_asc";
+              const active = ascending || sort === field + "_desc";
+              const next = field + (ascending ? "_desc" : "_asc");
+              return <Link key={field} href={`/${lang}?sort=${next}${viewParam}`} scroll={false} prefetch={false}
+                aria-label={`${t.sort}: ${t.fields[field]}, ${ascending ? t.desc : t.asc}`}>
+                {t.fields[field]}{active && <span aria-hidden>{ascending ? " ↑" : " ↓"}</span>}
+              </Link>;
+            })}
+          </nav>
           {failed ? (
             <p role="alert">
-              {t.error} <a href={`/${lang}?page=${page}`}>{t.retry}</a>
+              {t.error} <a href={`/${lang}?page=${page}&sort=${sort}${viewParam}`}>{t.retry}</a>
             </p>
           ) : (
             !total && <p>{t.empty}</p>
           )}
-          <div className="grid">
+          <div className="grid" data-view={view}>
             {variants.map((r) => (
               <article key={r.id}>
                 <div className="sleeve" aria-hidden>
@@ -115,15 +155,16 @@ export default function Storefront({
                       {r.title}
                     </Link>
                   </h3>
-                  <small>{[r.format, r.detail].filter(Boolean).join(" · ")}</small>
+                  <span>{r.artist}</span>
                 </div>
                 <span>
-                  {r.artist}
+                  <small className="variant-edition">{[r.format, r.detail].filter(Boolean).join(" · ")}</small>
+                  {r.condition && <small className="variant-condition">{t.condition}: {r.condition}</small>}
                   <small className="variant-quantity">{t.availableCount(r.quantity)}</small>
                 </span>
                 <div className="price">
                   <strong>{formatPrice(lang, r)}</strong>
-                  <button onClick={() => preview(r)}>{t.add}</button>
+                  <button onClick={() => openCart(r)}>{t.add}</button>
                 </div>
               </article>
             ))}
@@ -148,7 +189,6 @@ export default function Storefront({
           Data provided by <a href="https://www.discogs.com/">Discogs</a>.
         </small>
       </ShopFooter>
-      <CartPreview dialog={dialog} lang={lang} selected={selected} />
     </>
   );
 }

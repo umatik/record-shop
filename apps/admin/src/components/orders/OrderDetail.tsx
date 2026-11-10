@@ -23,7 +23,7 @@ const OrderDetail = ({ orderId }: OrderDetailProps) => {
   const { data: order, isPending, isError, error } = useOrder(orderId);
 
   return (
-    <Stack component="article" aria-labelledby="order-title" gap="lg" maw={640} mx="auto">
+    <Stack component="article" aria-labelledby="order-title" gap="lg" maw={640} mx={{ base: "auto", sm: 0 }}>
       <Button
         component={Link}
         href="/"

@@ -73,7 +73,7 @@ const Dashboard = () => {
   const wait = orders ? waiting(orders.toShip) : undefined;
 
   return (
-    <Stack gap="xl" maw={640} mx="auto">
+    <Stack gap="xl" maw={640} mx={{ base: "auto", sm: 0 }}>
       <Group justify="space-between" align="center" gap="md">
         <div>
           <Title order={1}>Pulpit</Title>

@@ -150,6 +150,7 @@ export const createProductRouter = (
    *       400:
    *         description: Invalid pagination or filter parameters
    */
+  router.get("/catalog-variants", productController.getCatalogVariants);
   router.get("/", productController.getProducts);
 
   /**

@@ -1,4 +1,5 @@
 import "@/config/env.js";
+import { customerRouter } from "./routes/customer-account.routes.js";
 import helmet from "helmet";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
@@ -80,6 +81,7 @@ app.get("/api-docs.json", (_req, res) => {
 app.use("/products", recordLookupRouter);
 app.use("/products", productRouter);
 app.use("/products", productVariantMediaRouter);
+app.use("/customer", customerRouter);
 app.use("/orders", orderRouter);
 app.use("/settings", settingsRouter);
 app.use("/users", userRouter);

@@ -55,7 +55,7 @@ const ProductDetail = ({ productId, openVariantId }: ProductDetailProps) => {
       aria-labelledby="product-title"
       gap="lg"
       maw={640}
-      mx="auto"
+      mx={{ base: "auto", sm: 0 }}
       mt="calc(var(--mantine-spacing-md) * -1)"
     >
       <Group justify="space-between" wrap="nowrap" gap="sm">

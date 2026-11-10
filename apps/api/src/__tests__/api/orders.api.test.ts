@@ -517,3 +517,60 @@ describe("Orders API – unpublished products", () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe("storefront checkout", () => {
+  const shipping = { name: "Guest Buyer", email: "guest@example.com", phone: "123456789",
+    street: "Test 1", city: "Warsaw", postal: "00-001", country: "PL" };
+  function checkout(quantity: number, key = crypto.randomUUID(), priceEur = 10000) {
+    return request(app).post("/orders/checkout").send({ key, carrier: "DHL", shipping,
+      items: [{ productVariantId: Number(variantId), quantity, priceEur }] });
+  }
+  async function stock() {
+    return Number((await request(app).get(`/products/${productId}`)).body.product.variants[0].quantity);
+  }
+
+  it("records a guest purchase once on concurrent retries and cancellation returns the copies", async () => {
+    const before = await stock();
+    const key = crypto.randomUUID();
+    const [a, b] = await Promise.all([checkout(2, key), checkout(2, key)]);
+    expect([a.status, b.status]).toEqual([201, 201]);
+    expect(a.body.id).toBe(b.body.id);
+    expect(await stock()).toBe(before - 2);
+    const detail = await request(app).get(`/orders/manage/${a.body.id}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(detail.body.order.buyer.email).toBe(shipping.email);
+    const cancelled = await request(app).post(`/orders/${a.body.id}/cancel`)
+      .set("Authorization", `Bearer ${adminToken}`).send({ reason: "Test" });
+    expect(cancelled.status).toBe(200);
+    expect(await stock()).toBe(before);
+  });
+
+  it("rolls back changed prices and sells the remaining stock to only one buyer", async () => {
+    const before = await stock();
+    expect((await checkout(1, crypto.randomUUID(), 1)).status).toBe(409);
+    expect(await stock()).toBe(before);
+    const orders = await Promise.all([checkout(before), checkout(before)]);
+    expect(orders.map(order => order.status).sort()).toEqual([201, 409]);
+    expect(await stock()).toBe(0);
+  });
+});
+
+it("registers a storefront customer, logs them in and queues one localized email for each event",async()=>{
+  const email="shopper@example.test", password="music-shop-password";
+  const created=await request(app).post("/customer/register").send({email,password,locale:"en"});
+  expect(created.status).toBe(201);
+  const login=await request(app).post("/login").send({email,password});
+  expect(login.status).toBe(200);
+  const body={key:crypto.randomUUID(),locale:"en",carrier:"DHL",shipping:{name:"Music Fan",email,phone:"123456789",
+    street:"Music 1",postal:"00-001",city:"Warsaw",country:"PL"},items:[{productVariantId:Number(variantId),quantity:1,priceEur:10000}]};
+  for(let i=0;i<2;i++) {
+    const r=await request(app).post("/orders/checkout").set("Authorization","Bearer "+login.body.token).send(body);
+    expect(r.status).toBe(201);
+  }
+  const mine=await request(app).get("/orders/my").set("Authorization","Bearer "+login.body.token);
+  expect(mine.status).toBe(200);
+  const {pool}=await import("@/database/db.js");
+  const mails=await pool.query("SELECT subject,body FROM customer_mail WHERE recipient=$1 ORDER BY id",[email]);
+  expect(mails.rows).toHaveLength(2);
+  expect(mails.rows[0].subject).toContain("Thanks");
+  expect(mails.rows[1].body).toContain("€105.00");
+});

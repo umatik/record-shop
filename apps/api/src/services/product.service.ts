@@ -70,6 +70,8 @@ export const normalizeTitle = (title: string) =>
 export const normalizeArtist = (artist: string) =>
   artist.replace(/\s*\(\d+\)$/, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
+import { listCatalogVariants, type CatalogSort } from "@/repositories/products/product/catalog-variants.js";
+
 export class ProductService {
   constructor(
     private productRepository: ProductRepository,
@@ -246,6 +248,14 @@ export class ProductService {
     });
 
     return product ? this.withPln(product) : null;
+  }
+
+  async getCatalogVariants(page: number, limit: number, sort: CatalogSort) {
+    const data = await this.withClient(client => listCatalogVariants(client, page, limit, sort));
+    const rate = await this.exchangeRates.getEurPlnRate();
+    return { ...data, variants: data.variants.map(v => ({
+      ...v, pricePln: rate === null ? null : convertEurToPln(v.priceEur, rate),
+    })) };
   }
 
   async getAllProducts(query: ProductListQuery): Promise<{

@@ -1,3 +1,4 @@
+import { welcomeMail } from "./customer-mail.js";
 import bcrypt from "bcrypt";
 import type { UserInterface } from "@/repositories/user/user.interface.js";
 import type { UserContactInterface } from "@/repositories/user/user-contact.interface.js";
@@ -84,6 +85,7 @@ export class UserService {
       };
 
       await this.userContactRepository.createContact(client, contactData);
+      await welcomeMail(client,String(user.id),user.email,"pl");
 
       await client.query("COMMIT");
 

@@ -577,7 +577,7 @@ export class OrderPostgresRepository implements OrderInterface {
           status: row.status,
           totalEur: 0,
           buyer: {
-            id: Number(row.buyerId),
+            id: row.buyerId === null ? null : Number(row.buyerId),
             email: row.buyerEmail,
             firstName: row.firstName,
             lastName: row.lastName,
@@ -626,7 +626,7 @@ type ManagedOrderRow = {
   shippedAt: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
-  buyerId: number;
+  buyerId: number | null;
   buyerEmail: string;
   firstName: string | null;
   lastName: string | null;
@@ -662,6 +662,7 @@ const MANAGED_ORDER_WHERE = `
   AND ($3::DATE IS NULL OR o.created_at < ($3::DATE + 1)::TIMESTAMP AT TIME ZONE '${SHOP_TIME_ZONE}')
   AND ($4::TEXT IS NULL
        OR o.id::TEXT = $5
+       OR o.shipping->>'email' ILIKE $4 OR o.shipping->>'name' ILIKE $4
        OR EXISTS (SELECT 1
                   FROM users u
                          LEFT JOIN user_contact_details c ON c.user_id = u.id
@@ -700,14 +701,14 @@ const MANAGED_ORDER_SELECT = `
          o.cancelled_at        AS "cancelledAt",
          o.cancel_reason       AS "cancelReason",
          u.id                  AS "buyerId",
-         u.email               AS "buyerEmail",
-         c.first_name          AS "firstName",
+         coalesce(o.shipping->>'email', u.email) AS "buyerEmail",
+         coalesce(o.shipping->>'name', c.first_name) AS "firstName",
          c.last_name           AS "lastName",
-         c.phone,
-         c.address,
-         c.city,
-         c.postal_code         AS "postalCode",
-         c.country,
+         coalesce(o.shipping->>'phone', c.phone) AS "phone",
+         coalesce(o.shipping->>'street', c.address) AS "address",
+         coalesce(o.shipping->>'city', c.city) AS "city",
+         coalesce(o.shipping->>'postal', c.postal_code) AS "postalCode",
+         coalesce(o.shipping->>'country', c.country) AS "country",
          oi.id                 AS "itemId",
          oi.product_variant_id AS "productVariantId",
          oi.quantity,
@@ -718,7 +719,7 @@ const MANAGED_ORDER_SELECT = `
          p.attributes -> 'artists' AS artists,
          photo.url             AS "photoUrl"
   FROM orders o
-         JOIN users u ON u.id = o.user_id
+         LEFT JOIN users u ON u.id = o.user_id
          LEFT JOIN user_contact_details c ON c.user_id = u.id
          JOIN order_items oi ON oi.order_id = o.id
          JOIN product_variants pv ON pv.id = oi.product_variant_id

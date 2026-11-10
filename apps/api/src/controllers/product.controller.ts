@@ -16,6 +16,8 @@ import { isValidPagination } from "@/validators/helpers/pagination.validator.js"
 import type { ProductStatus } from "@/types/product.types.js";
 import { productTypes } from "@/product-types/index.js";
 
+import { isCatalogSort } from "@/repositories/products/product/catalog-variants.js";
+
 export class ProductController {
   private productService: ProductService;
 
@@ -26,6 +28,18 @@ export class ProductController {
   // ------------------------------------------------------------------
   // Sklep (publiczne)
   // ------------------------------------------------------------------
+
+  getCatalogVariants = async (req: Request, res: Response) => {
+    const page = Number(req.query.page ?? 1);
+    const limit = Number(req.query.limit ?? 8);
+    const sort = req.query.sort ?? "newest";
+    if (!isValidPagination(page, limit) || !isCatalogSort(sort)) {
+      res.status(400).json({ message: "Invalid catalogue parameters" });
+      return;
+    }
+    const { variants, copies, total } = await this.productService.getCatalogVariants(page, limit, sort);
+    res.json({ variants, copies, pagination: createPagination(page, limit, total) });
+  };
 
   getProducts = async (req: Request, res: Response) => {
     await this.listProducts(req, res, "published");

@@ -6,7 +6,7 @@ type ComingSoonProps = {
 
 /** Ekran, który powstanie w kolejnym etapie. */
 const ComingSoon = ({ title }: ComingSoonProps) => (
-  <Stack component="section" aria-labelledby="coming-soon-title" gap="xs" maw={640} mx="auto">
+  <Stack component="section" aria-labelledby="coming-soon-title" gap="xs" maw={640} mx={{ base: "auto", sm: 0 }}>
     <Title id="coming-soon-title" order={1}>
       {title}
     </Title>

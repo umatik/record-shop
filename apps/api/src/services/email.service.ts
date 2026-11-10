@@ -19,6 +19,8 @@ export class EmailService {
     this.from = from;
 
     this.transporter = nodemailer.createTransport({
+      connectionTimeout: 10000,
+      socketTimeout: 20000,
       host,
       port,
       secure,
@@ -31,6 +33,11 @@ export class EmailService {
           }
         : {}),
     });
+  }
+
+  async sendCustomerMessage(to: string, subject: string, text: string, id: string) {
+    await this.transporter.sendMail({ from: this.from, to, subject, text,
+      messageId: `<customer-${id}@rasbass.shop>` });
   }
 
   /** Wysyła plik z eksportem zamówień jako załącznik. */

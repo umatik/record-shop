@@ -1,5 +1,5 @@
 import { formatPrice } from "@/lib/price";
-import { VariantCartButton } from "@/components/CartPreview";
+import { HeaderCart, VariantCartButton } from "@/components/CartPreview";
 import ListeningRoom from "@/components/ListeningRoom";
 import DiscogsCredit from "@/components/DiscogsCredit";
 import ShopFooter from "@/components/ShopFooter";
@@ -144,6 +144,7 @@ export default async function VariantPage({ params }: PageProps<"/[lang]/product
             </Link>
           ))}
         </nav>
+        <HeaderCart lang={lang} />
       </header>
       <main className="catalog detail">
         <Link href={`/${lang}#katalog`}>← {shop.catalog}</Link>
@@ -161,6 +162,8 @@ export default async function VariantPage({ params }: PageProps<"/[lang]/product
                 <VariantCartButton
                   lang={lang}
                   item={{
+                    id: v.id,
+                    quantity: v.quantity,
                     title: product.title,
                     artist: a.artists?.join(", ") ?? "",
                     detail: [x.label, x.catalogNumber, x.year, x.mediaCondition].filter(Boolean).join(" · "),

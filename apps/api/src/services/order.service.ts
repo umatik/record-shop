@@ -20,12 +20,59 @@ import type { Database } from "@/database/database.interface.js";
 export const EXPORT_LIMIT = 5000;
 const EXPORT_PAGE = 100;
 
+import { orderMail } from "./customer-mail.js";
+import { createHash } from "node:crypto";
+import type { Checkout } from "@/validators/order.validator.js";
+import { AppError } from "@/errors/app.error.js";
+
+const deliveryFees = {
+  InPost: [400, 1600], DHL: [500, 2000], "Poczta Polska": [450, 1800],
+} as const;
+
 export class OrderService {
   constructor(
     private orderRepository: OrderInterface,
     private pool: Database,
     private productCache: Cache<unknown>,
   ) {}
+
+  async checkout({ key, items, shipping, carrier, locale }: Checkout, userId: string | null = null): Promise<number> {
+    const ordered = [...items].sort((a, b) => a.productVariantId - b.productVariantId);
+    if (new Set(ordered.map(item => item.productVariantId)).size !== ordered.length)
+      throw new AppError("Duplicate variants", 400);
+    const hash = createHash("sha256").update(JSON.stringify(userId ? [ordered, shipping, carrier, userId] : [ordered, shipping, carrier])).digest("hex");
+    const client = await this.pool.connect();
+    const [eur, pln] = deliveryFees[carrier];
+    let id: number;
+    try {
+      await client.query("BEGIN");
+      const inserted = await client.query(
+        `INSERT INTO orders(status, checkout_key, checkout_hash, shipping, carrier, delivery_eur, delivery_pln, user_id)
+         VALUES ('pending', $1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (checkout_key) DO NOTHING RETURNING id`, [key, hash, shipping, carrier, eur, pln, userId]);
+      if (inserted.rowCount) {
+        id = Number(inserted.rows[0].id);
+        await this.orderRepository.createItems(client, id, ordered);
+        const prices = await client.query(
+          "SELECT product_variant_id, price_eur FROM order_items WHERE order_id = $1 ORDER BY product_variant_id", [id]);
+        if (ordered.some((item, index) => item.priceEur !== Number(prices.rows[index].price_eur)))
+          throw new AppError("Price changed", 409);
+        await orderMail(client,id,shipping.email,locale,carrier,eur);
+      } else {
+        const existing = await client.query("SELECT id, checkout_hash FROM orders WHERE checkout_key = $1", [key]);
+        if (existing.rows[0].checkout_hash !== hash) throw new AppError("Checkout key already used", 409);
+        id = Number(existing.rows[0].id);
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    await this.productCache.clear();
+    return id;
+  }
 
   async createOrder(data: CreateOrderData): Promise<Order> {
     const client = await this.pool.connect();
