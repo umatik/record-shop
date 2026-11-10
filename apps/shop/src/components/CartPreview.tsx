@@ -2,15 +2,40 @@
 import {createContext, useContext, useEffect, useRef, useState, type ReactNode} from "react";
 import {useQueryClient} from "@tanstack/react-query";
 import Link from "next/link";
+import Image from "next/image";
+import {Select} from "@mantine/core";
 import {usePathname, useRouter} from "next/navigation";
-import {ShippingDetails, shippingCopy, emptyShipping, type Shipping} from "./ShippingDetails";
-import {IconLogout, IconShoppingCart, IconUser, IconX} from "@tabler/icons-react";
+import {ShippingDetails, shippingCopy, emptyShipping, savePrefill, type Shipping} from "./ShippingDetails";
+import {IconDisc, IconLogout, IconMinus, IconPlus, IconShoppingCart, IconTrash, IconUser, IconX} from "@tabler/icons-react";
 import {formatPrice, type Price} from "@/lib/price";
 import {messages, type Locale} from "@/app/messages";
 
-type Item = Price & { id: number; quantity: number; title: string; artist: string; detail: string };
+type Item = Price & { id: number; quantity: number; title: string; artist: string; detail: string; photo?: string | null };
 type Line = Item & { count: number };
 const cartKey = "rasbass.cart.v1";
+
+/** Quantity field that lets the customer type freely and only commits values from 1 up to the stock. */
+function QuantityField({label, value, max, onChange}: {label: string; value: number; max: number; onChange: (n: number) => void}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const step = (delta: number) => {
+    setDraft(null);
+    onChange(Math.min(max, Math.max(1, value + delta)));
+  };
+  return <div className="quantity-field">
+    <span>{label}</span>
+    <button type="button" aria-label="-1" onClick={() => step(-1)} disabled={value <= 1}><IconMinus size={16} aria-hidden/></button>
+    <input type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" name="quantity"
+           maxLength={String(max).length} value={draft ?? String(value)} data-max={max}
+           onChange={e => {
+             const digits = e.currentTarget.value.replace(/\D/g, "");
+             setDraft(digits);
+             const n = Number(digits);
+             if (digits && n >= 1 && n <= max) onChange(n);
+           }}
+           onBlur={() => setDraft(null)}/>
+    <button type="button" aria-label="+1" onClick={() => step(1)} disabled={value >= max}><IconPlus size={16} aria-hidden/></button>
+  </div>;
+}
 
 function readLines(fallback: Line[]): Line[] {
   try {
@@ -87,6 +112,7 @@ const copy = {
     done: "Zamówienie zostało przyjęte.",
     demo: "Zamówienie bez płatności online",
     remove: "Usuń",
+    clearCart: "Usuń koszyk",
     edit: "Wróć do koszyka",
     count: "Liczba sztuk"
   },
@@ -105,6 +131,7 @@ const copy = {
     done: "Your order has been received.",
     demo: "Order without online payment",
     remove: "Remove",
+    clearCart: "Clear cart",
     edit: "Back to cart",
     count: "Quantity"
   },
@@ -123,6 +150,7 @@ const copy = {
     done: "Hemos recibido tu pedido.",
     demo: "Pedido sin pago en línea",
     remove: "Eliminar",
+    clearCart: "Vaciar carrito",
     edit: "Volver al carrito",
     count: "Cantidad"
   },
@@ -279,6 +307,12 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
     popup.current?.showModal();
   }
 
+  function clearCart() {
+    updateLines(() => []);
+    setStep("cart");
+    router.push(`/${lang}`);
+  }
+
   function leaveCart() {
     setStep("cart");
     router.push(origin.current ?? `/${lang}`);
@@ -302,12 +336,15 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
   return (
     <SessionContext.Provider value={{email: sessionEmail, signOut}}><CartContext.Provider value={open}><CountContext.Provider value={lines.reduce((n, line) => n + line.count, 0)}>
       <LoginContext.Provider value={provider => {
-        router.replace(lines.length ? `/${lang}/cart` : `/${lang}`);
-        if (lines.length) {
-          if (provider) setShipping(previous => ({...previous, account: "member", provider}));
-          setStep(provider ? "shipping" : "cart");
-
+        if (provider) {
+          // After signing in, the customer lands on the homepage; the cart stays as it was.
+          setShipping(previous => ({...previous, account: "member", provider}));
+          setStep("cart");
+          router.replace(`/${lang}`);
+          return;
         }
+        router.replace(lines.length ? `/${lang}/cart` : `/${lang}`);
+        if (lines.length) setStep("cart");
       }}>{children}</LoginContext.Provider>
       <dialog ref={popup} className="cart-added" aria-labelledby="added-title">
         <h2 id="added-title">{atLimit ? c.limit : c.added}</h2>
@@ -315,54 +352,53 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
         <button className="secondary-action" onClick={() => popup.current?.close()}>{c.keep}</button>
       </dialog>
       {pathname === `/${lang}/cart` && <main className="checkout cart-page" aria-labelledby="cart-title">
+          <Link href={`/${lang}`} className="login-logo">
+            <Image src="/logo.png" width={96} height={96} alt="RasBass Record Shop"/>
+          </Link>
           <div className="sectionhead">
               <h2 id="cart-title" tabIndex={-1}
-                  ref={heading}>{step === "done" ? c.thanks : step === "review" ? c.review : step === "shipping" ? delivery.title : t.cart}</h2>
-              <button aria-label={t.close} onClick={leaveCart}><IconX aria-hidden/></button>
+                  ref={heading}>{step === "done" ? c.thanks : step === "review" ? c.review : step === "shipping" ? delivery.title : lines.length ? t.cart : t.emptyCart}</h2>
           </div>
+          <button className="auth-close" type="button" aria-label={t.close} onClick={leaveCart}><IconX size={20} aria-hidden/></button>
         {step === "done" || !lines.length ? <>
-          <p>{step === "done" ? c.done + " #" + receipt : t.emptyCart}</p>
-          <button className="close" onClick={leaveCart}>{t.back}</button>
-          {step === "done" && !sessionEmail &&
-              <Link className="secondary-action" href={`/${lang}/register`}>{delivery.register}</Link>}
+          {step === "done" && <p>{c.done + " #" + receipt}</p>}
+          <button className="close" onClick={leaveCart}>{delivery.backToShop}</button>
+          {step === "done" && !sessionEmail && <>
+              <p>{delivery.registerQuestion}</p>
+              <Link className="secondary-action" href={`/${lang}/register`} onClick={() => savePrefill(shipping)}>{delivery.register}</Link>
+          </>}
         </> : step === "shipping" ? <ShippingDetails lang={lang} data={shipping} change={setShipping}
                                                      next={() => navigate("review")} back={() => navigate("cart")}
                                                      nextLabel={c.review} backLabel={c.edit}/> : <>
           <ul className="checkout-lines">{lines.map(line => <li key={line.id}>
-            <strong>{line.title}</strong>
-            <small>{[line.artist, line.detail].filter(Boolean).join(" · ")}</small>
-            <div className="checkout-row"><span>{line.count} × {formatPrice(lang, line)}</span>
-              {step === "cart" && <button onClick={() => updateLines(current => current.filter(l => l.id !== line.id))}
-                                          aria-label={c.remove + " " + line.title}>{c.remove}</button>}</div>
-            {step === "cart" && <label>{c.count} <input type="number" min={1} max={line.quantity} value={line.count}
-                                                        onChange={e => {
-                                                          const count = e.currentTarget.valueAsNumber;
-                                                          if (Number.isInteger(count) && count >= 1 && count <= line.quantity)
-                                                            updateLines(current => current.map(l => l.id === line.id ? {
-                                                              ...l,
-                                                              count: Math.min(count, l.quantity)
-                                                            } : l));
-                                                        }}/></label>}
+            {line.photo
+              ? <Image className={step === "review" ? "cart-thumb cart-thumb-lg" : "cart-thumb"} src={line.photo} width={step === "review" ? 80 : 56} height={step === "review" ? 80 : 56} alt="" unoptimized/>
+              : <span className={step === "review" ? "cart-thumb cart-thumb-lg cart-thumb-empty" : "cart-thumb cart-thumb-empty"} aria-hidden><IconDisc size={step === "review" ? 36 : 26}/></span>}
+            <div className="cart-meta"><strong>{line.title}</strong> <small>{[line.artist, line.detail].filter(Boolean).join(" · ")}</small></div>
+            <div className="checkout-row">            {step === "cart" && <QuantityField label={c.count} value={line.count} max={line.quantity}
+                                                        onChange={n => updateLines(current => current.map(l => l.id === line.id ? {
+                                                          ...l,
+                                                          count: Math.min(n, l.quantity)
+                                                        } : l))}/>}<span>{step === "cart" ? <>× {formatPrice(lang, line)}</> : <>{line.count} × {formatPrice(lang, line)}</>}</span>
+              {step === "cart" && <button className="cart-remove" title={c.remove}
+                                          onClick={() => updateLines(current => current.filter(l => l.id !== line.id))}
+                                          aria-label={c.remove + " " + line.title}><IconTrash size={20} aria-hidden/></button>}</div>
+
           </li>)}</ul>
-          {step === "cart" && <fieldset>
-              <legend>{c.delivery}</legend>
-            {rates.map(option =>
-              <label key={option.name}><input type="radio" name="carrier" checked={rate === option}
-                                              onChange={() => setRate(option)}/>
-                <span>{option.name}</span><strong>{formatPrice(lang, option)}</strong></label>)}</fieldset>}
+          {step === "cart" && <Select label={c.delivery} data={rates.map(option => ({value: option.name, label: `${option.name} · ${formatPrice(lang, option)}`}))}
+                                  value={rate.name} allowDeselect={false} withAsterisk={false} comboboxProps={{withinPortal: true}}
+                                  onChange={value => { const next = rates.find(option => option.name === value); if (next) setRate(next); }}/>}
           {step === "review" && <section className="shipping-review">
               <h3>{delivery.title}</h3>
-              <p>{shipping.name}<br/>{shipping.street}<br/>{shipping.postal} {shipping.city}<br/>{shipping.country}</p>
+              <p>{shipping.name}<br/>{shipping.street}<br/>{shipping.postal} {shipping.city}, {shipping.country}</p>
               <p>{shipping.email}<br/>{shipping.phone}</p>
-              <p>{!sessionEmail ? delivery.guest : sessionEmail}</p>
-              <button onClick={() => navigate("shipping")}>{delivery.edit}</button>
           </section>}
           <div className="checkout-totals">
             <div><span>{c.goods}</span><span>{formatPrice(lang, subtotal)}</span></div>
             <div><span>{c.delivery} · {rate.name}</span><span>{formatPrice(lang, rate)}</span></div>
             <div><strong>{t.total}</strong><strong>{formatPrice(lang, total)}</strong></div>
           </div>
-          <small>{c.demo}</small>
+          <hr className="shipping-hairline"/>
 
           {failure && step === "review" && <p role="alert">{c[failure]}</p>}
 
@@ -370,11 +406,10 @@ export function CartProvider({lang, children}: { lang: Locale; children: ReactNo
             if (step === "cart") navigate("shipping");
             else void submitOrder();
           }}>{step === "cart" ? (!sessionEmail ? delivery.guest : delivery.title) : c.confirm}</button>
+          {step === "cart" && <button className="secondary-action" type="button" onClick={clearCart}>{c.clearCart}</button>}
           {step === "cart" && sessionEmail &&
               <button className="secondary-action" onClick={signOut}>{accountCopy[lang].signOut}</button>}
-          {step === "cart" && !sessionEmail &&
-              <Link className="secondary-action" href={`/${lang}/login`}>{delivery.login}</Link>}
-          {step === "review" && <button className="secondary-action" onClick={() => navigate("cart")}>{c.edit}
+          {step === "review" && <button className="secondary-action" onClick={() => navigate("shipping")}>{delivery.backToShipping}
           </button>}
         </>}
       </main>}

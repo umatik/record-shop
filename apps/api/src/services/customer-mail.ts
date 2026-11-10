@@ -10,6 +10,8 @@ const messages = {
     order: "Potwierdzenie zamówienia",
     thanks: "Dziękujemy za zakup!",
     total: "Łącznie z dostawą",
+    reset: "Ustaw nowe hasło · RasBass",
+    resetBody: "Aby ustawić nowe hasło, otwórz link. Link jest ważny przez 1 godzinę i działa tylko raz:",
   },
   en: {
     welcome: "Thanks for signing up",
@@ -17,6 +19,8 @@ const messages = {
     order: "Order confirmation",
     thanks: "Thank you for your purchase!",
     total: "Total including delivery",
+    reset: "Set a new password · RasBass",
+    resetBody: "To set a new password, open the link. It is valid for 1 hour and works only once:",
   },
   es: {
     welcome: "Gracias por registrarte",
@@ -24,6 +28,8 @@ const messages = {
     order: "Confirmación del pedido",
     thanks: "¡Gracias por tu compra!",
     total: "Total con envío",
+    reset: "Establece una nueva contraseña · RasBass",
+    resetBody: "Para establecer una nueva contraseña, abre el enlace. Es válido durante 1 hora y solo funciona una vez:",
   },
 };
 async function enqueue(
@@ -52,6 +58,16 @@ export function welcomeMail(
     t.welcome + " · RasBass",
     t.account,
   );
+}
+export function resetMail(
+  client: PoolClient,
+  tokenId: string,
+  email: string,
+  locale: MailLocale,
+  link: string,
+) {
+  const t = messages[locale];
+  return enqueue(client, "reset:" + tokenId, email, t.reset, t.resetBody + "\n" + link);
 }
 export async function orderMail(
   client: PoolClient,

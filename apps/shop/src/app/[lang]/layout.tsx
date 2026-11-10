@@ -33,6 +33,11 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
     <html lang={lang} data-mantine-color-scheme="light">
       <head>
         <meta name="darkreader-lock" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `addEventListener('keydown',function(e){if(e.key==='Tab')document.documentElement.classList.add('kbd')});addEventListener('pointerdown',function(){document.documentElement.classList.remove('kbd')});`,
+          }}
+        />
       </head>
       <body>
         <Providers><CartProvider lang={lang}>{children}</CartProvider></Providers>

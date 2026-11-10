@@ -1,14 +1,15 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcrypt";
 import * as oidc from "openid-client";
 import { z } from "zod";
 import { pool } from "@/database/db.js";
 import { JwtService } from "@/services/jwt.service.js";
-import { welcomeMail, type MailLocale } from "@/services/customer-mail.js";
+import { resetMail, welcomeMail, type MailLocale } from "@/services/customer-mail.js";
 import { RolePostgresRepository } from "@/repositories/role/role-postgres.repository.js";
 import { AppError } from "@/errors/app.error.js";
+import { authenticationMiddleware, type AuthenticatedRequest } from "@/middleware/authentication.middleware.js";
 
 const providerSchema = z.enum(["apple", "google"]);
 const language = z.enum(["pl", "en", "es"]).default("pl");
@@ -17,11 +18,22 @@ type Provider = z.infer<typeof providerSchema>;
 const jwt = new JwtService();
 const roles = new RolePostgresRepository();
 
+type CustomerContact = {
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  address: string;
+  city: string;
+  postalCode: string;
+  country: string;
+};
+
 async function customer(
   email: string,
   hash: string,
   locale: MailLocale,
   identity?: { provider: Provider; subject: string },
+  contact?: CustomerContact,
 ) {
   const client = await pool.connect();
   try {
@@ -49,8 +61,18 @@ async function customer(
     const id = result.rows[0].id;
     await roles.assignToUser(client, Number(id), "user");
     await client.query(
-      "INSERT INTO user_contact_details(user_id,first_name,last_name) VALUES ($1,'','')",
-      [id],
+      `INSERT INTO user_contact_details(user_id,first_name,last_name,phone,address,city,postal_code,country)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        id,
+        contact?.firstName ?? "",
+        contact?.lastName ?? "",
+        contact?.phone ?? null,
+        contact?.address ?? null,
+        contact?.city ?? null,
+        contact?.postalCode ?? null,
+        contact?.country ?? null,
+      ],
     );
     if (identity)
       await client.query(
@@ -101,6 +123,124 @@ customerRouter.use(
     legacyHeaders: false,
   }),
 );
+const resetTokenTtlMs = 60 * 60 * 1000;
+const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+const shopOrigin = () =>
+  process.env.SHOP_ORIGIN ??
+  (process.env.NODE_ENV === "production" ? undefined : "http://localhost:3002");
+
+customerRouter.post("/password-reset/request", async (req, res) => {
+  const data = z
+    .object({ email: emailSchema, locale: language })
+    .safeParse({ email: String(req.body?.email ?? "").trim().toLowerCase(), locale: req.body?.locale });
+  if (!data.success) {
+    res.sendStatus(400);
+    return;
+  }
+  const origin = shopOrigin();
+  if (!origin) throw new AppError("Shop origin not configured", 503);
+  const { email, locale } = data.data;
+  const user = await pool.query(
+    "SELECT id FROM users WHERE email = $1 AND NOT is_deleted",
+    [email],
+  );
+  if (user.rows[0]) {
+    const token = randomBytes(32).toString("base64url");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const row = await client.query(
+        "INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES ($1,$2,$3) RETURNING id",
+        [user.rows[0].id, hashToken(token), new Date(Date.now() + resetTokenTtlMs)],
+      );
+      const link = `${origin}/${locale}/reset-password?token=${encodeURIComponent(token)}`;
+      await resetMail(client, String(row.rows[0].id), email, locale, link);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  // Same answer whether or not the address has an account.
+  res.status(202).json({ ok: true });
+});
+customerRouter.post("/password-reset/confirm", async (req, res) => {
+  const data = z
+    .object({
+      token: z.string().min(20).max(200),
+      password: z
+        .string()
+        .min(8)
+        .refine((s) => Buffer.byteLength(s) <= 72 && !!s.trim()),
+    })
+    .safeParse(req.body);
+  if (!data.success) {
+    res.sendStatus(400);
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT id, user_id FROM password_reset_tokens
+      WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() FOR UPDATE`,
+      [hashToken(data.data.token)],
+    );
+    if (!found.rows[0]) {
+      await client.query("ROLLBACK");
+      res.sendStatus(400);
+      return;
+    }
+    const userId = found.rows[0].user_id;
+    await client.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
+      await bcrypt.hash(data.data.password, 12),
+      userId,
+    ]);
+    await client.query(
+      "UPDATE password_reset_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL",
+      [userId],
+    );
+    await client.query("COMMIT");
+    res.sendStatus(204);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+});
+customerRouter.get("/me/shipping", authenticationMiddleware, async (req: AuthenticatedRequest, res) => {
+  const { rows } = await pool.query(
+    `SELECT first_name, last_name, phone, address, city, postal_code, country
+    FROM user_contact_details WHERE user_id = $1`,
+    [req.user?.userId],
+  );
+  const c = rows[0];
+  res.set("Cache-Control", "no-store").json({
+    email: req.user?.email ?? "",
+    firstName: c?.first_name ?? "",
+    lastName: c?.last_name ?? "",
+    phone: c?.phone ?? "",
+    address: c?.address ?? "",
+    city: c?.city ?? "",
+    postalCode: c?.postal_code ?? "",
+    country: c?.country ?? "",
+  });
+});
+customerRouter.post("/email-available", async (req, res) => {
+  const email = emailSchema.safeParse(String(req.body?.email ?? "").trim().toLowerCase());
+  if (!email.success) {
+    res.sendStatus(400);
+    return;
+  }
+  const taken = await pool.query(
+    "SELECT 1 FROM users WHERE email = $1 AND NOT is_deleted",
+    [email.data],
+  );
+  res.set("Cache-Control", "no-store").json({ available: taken.rowCount === 0 });
+});
 customerRouter.post("/register", async (req, res) => {
   const data = z
     .object({
@@ -110,17 +250,34 @@ customerRouter.post("/register", async (req, res) => {
         .min(8)
         .refine((s) => Buffer.byteLength(s) <= 72 && !!s.trim()),
       locale: language,
+      firstName: z.string().trim().min(1).max(100),
+      lastName: z.string().trim().min(1).max(100),
+      phone: z.string().trim().min(1).max(50),
+      street: z.string().trim().min(1).max(255),
+      postal: z.string().trim().min(1).max(20),
+      city: z.string().trim().min(1).max(100),
+      country: z.string().trim().min(1).max(100),
     })
     .safeParse(req.body);
   if (!data.success) {
     res.sendStatus(400);
     return;
   }
-  const { email, password, locale } = data.data;
+  const { email, password, locale, firstName, lastName, phone, street, postal, city, country } = data.data;
   const token = await customer(
     email.toLowerCase(),
     await bcrypt.hash(password, 12),
     locale,
+    undefined,
+    {
+      firstName,
+      lastName,
+      phone,
+      address: street,
+      city,
+      postalCode: postal,
+      country,
+    },
   );
   res.status(201).json({ token });
 });
