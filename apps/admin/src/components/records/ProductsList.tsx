@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Chip, CloseButton, Group, SegmentedControl, Stack, Text, TextInput } from "@mantine/core";
+import { Button, CloseButton, Group, SegmentedControl, Stack, Text, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconMusic, IconPackage, IconSearch, IconVinyl, type Icon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -56,7 +56,9 @@ const COPY: Record<
     counter: (n: number, stock?: { copies?: number; presses?: number }) => ReactNode;
     empty: string;
     /** Zawężenie listy: parametr w adresie, podpis przełącznika i pusty stan po zawężeniu. */
-    narrow: { param: string; label: string; empty: string };
+    narrow: { param: string; label: string; empty: string; defaultOn: boolean };
+    /** Krótki opis pod przełącznikami: co widać na liście w danym trybie. */
+    hint: { all: string; narrow: string };
   }
 > = {
   published: {
@@ -74,13 +76,31 @@ const COPY: Record<
       </Group>
     ),
     empty: "Nie ma jeszcze płyt w sprzedaży.",
-    narrow: { param: "dostepne", label: "Tylko na stanie", empty: "Żadna płyta nie jest teraz na stanie." },
+    narrow: {
+      param: "dostepne",
+      label: "Na stanie",
+      empty: "Żadna płyta nie jest teraz na stanie.",
+      defaultOn: true,
+    },
+    hint: {
+      all: "Wszystkie płyty, także bez sztuk.",
+      narrow: "Tylko płyty, które są na stanie.",
+    },
   },
   draft: {
     title: "Szkice",
     counter: (n) => `${count(n, ["płyta", "płyty", "płyt"])} do dokończenia`,
     empty: "Wszystkie płyty są dokończone.",
-    narrow: { param: "gotowe", label: "Gotowe do publikacji", empty: "Żaden szkic nie jest jeszcze gotowy." },
+    narrow: {
+      param: "gotowe",
+      label: "Gotowe do publikacji",
+      empty: "Żaden szkic nie jest jeszcze gotowy.",
+      defaultOn: false,
+    },
+    hint: {
+      all: "Płyty rozpoczęte w kreatorze, jeszcze nieopublikowane.",
+      narrow: "Tylko szkice gotowe do publikacji.",
+    },
   },
 };
 
@@ -99,7 +119,8 @@ const ProductsList = ({ status, view = "products", initialSearch = "", narrowed 
   const listHref = (nextView: string, phrase: string, nextNarrowed = narrowed) => {
     const params = new URLSearchParams();
     if (nextView === "variants") params.set("widok", "warianty");
-    if (nextNarrowed) params.set(copy.narrow.param, "1");
+    // Domyślny stan nie trafia do adresu; zmiana na niedomyślny zapisuje się jako 1 albo 0.
+    if (nextNarrowed !== copy.narrow.defaultOn) params.set(copy.narrow.param, nextNarrowed ? "1" : "0");
     if (phrase) params.set("szukaj", phrase);
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
@@ -215,24 +236,35 @@ const ProductsList = ({ status, view = "products", initialSearch = "", narrowed 
         aria-label="Szukaj: artysta, tytuł, numer katalogowy"
       />
 
-      {!isDraft && (
-        <SegmentedControl
-          style={{ alignSelf: "flex-start" }}
+      <Group justify="space-between" wrap="nowrap" gap="xs">
+        {!isDraft && (
+          <SegmentedControl
+            size="lg"
+            radius="md"
+            value={view}
+            onChange={changeView}
+            data={VIEWS}
+            aria-label="Widok listy"
+            style={{ flex: "0 0 auto" }}
+          />
+        )}
+        <Button
           size="lg"
-          value={view}
-          onChange={changeView}
-          data={VIEWS}
-          aria-label="Widok listy"
-        />
-      )}
-
-      <Chip
-        size="md"
-        checked={narrowed}
-        onChange={(checked) => router.replace(listHref(view, q, checked), { scroll: false })}
-      >
-        {copy.narrow.label}
-      </Chip>
+          radius="md"
+          variant="filled"
+          bg={narrowed ? "white" : "gray.1"}
+          c="dark.8"
+          aria-pressed={narrowed}
+          onClick={() => router.replace(listHref(view, q, !narrowed), { scroll: false })}
+          style={{ flexShrink: 0 }}
+          styles={{ label: { whiteSpace: "nowrap" } }}
+        >
+          {copy.narrow.label}
+        </Button>
+      </Group>
+      <Text fz="sm" c="dimmed" aria-live="polite">
+        {narrowed ? copy.hint.narrow : copy.hint.all}
+      </Text>
 
       {list.isPending && <LoadingState label="Ładowanie płyt" height={300} />}
       {list.isError && <ErrorState message={list.error.message} />}

@@ -21,8 +21,8 @@ const SideNav = ({ pathname }: SideNavProps) => {
             component={Link}
             href={href}
             label={label}
-            active={isActive(pathname, href)}
-            aria-current={isActive(pathname, href) ? "page" : undefined}
+            active={isActive(pathname, { href })}
+            aria-current={isActive(pathname, { href }) ? "page" : undefined}
             leftSection={<Icon size={20} aria-hidden="true" />}
             rightSection={
               href === "/szkice" && draftCount ? (

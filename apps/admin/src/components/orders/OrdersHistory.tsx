@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, CloseButton, Group, NativeSelect, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Accordion, Button, Chip, CloseButton, Group, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconDownload, IconMail, IconSearch } from "@tabler/icons-react";
+import { IconDownload, IconFilter, IconMail, IconSearch } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import RowList from "@/components/records/RowList";
@@ -26,7 +26,7 @@ type OrdersHistoryProps = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Wszystkie statusy" },
+  { value: "all", label: "Wszystkie" },
   ...ORDER_STATUSES.map((value) => ({ value, label: ORDER_STATUS[value].label })),
 ];
 
@@ -107,98 +107,118 @@ const OrdersHistory = ({ status, from = "", to = "", initialSearch = "" }: Order
         aside={list.total !== undefined ? count(list.total, ["zamówienie", "zamówienia", "zamówień"]) : undefined}
       />
 
-      <TextInput
-        ref={searchRef}
-        type="search"
-        size="lg"
-        value={search}
-        onChange={(event) => setSearch(event.currentTarget.value)}
-        onKeyDown={(event) => event.key === "Escape" && search && clearSearch()}
-        placeholder="Szukaj kupującego"
-        leftSection={<IconSearch size={22} aria-hidden="true" />}
-        rightSectionWidth={52}
-        rightSectionPointerEvents="all"
-        rightSection={
-          search && <CloseButton size="lg" iconSize={22} onClick={clearSearch} aria-label="Wyczyść wyszukiwanie" />
-        }
-        aria-label="Szukaj: imię, nazwisko, e-mail albo numer zamówienia"
-      />
-
-      <Stack component="fieldset" gap="sm" m={0} p={0} style={{ border: 0 }}>
-        <legend className="sr-only">Filtry historii zamówień</legend>
-        <NativeSelect
-          aria-label="Status zamówienia"
-          data={STATUS_OPTIONS}
-          value={status ?? ""}
-          onChange={(event) => show({ status: event.currentTarget.value })}
+      <Stack gap="sm">
+        <TextInput
+          ref={searchRef}
+          type="search"
+          size="lg"
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+          onKeyDown={(event) => event.key === "Escape" && search && clearSearch()}
+          placeholder="Szukaj kupującego"
+          leftSection={<IconSearch size={22} aria-hidden="true" />}
+          rightSectionWidth={52}
+          rightSectionPointerEvents="all"
+          rightSection={
+            search && <CloseButton size="lg" iconSize={22} onClick={clearSearch} aria-label="Wyczyść wyszukiwanie" />
+          }
+          aria-label="Szukaj: imię, nazwisko, e-mail albo numer zamówienia"
         />
-        <SimpleGrid cols={2} spacing="sm">
-          <TextInput
-            type="date"
-            label="Złożone od"
-            value={from}
-            max={to || undefined}
-            onChange={(event) => show({ from: event.currentTarget.value })}
-          />
-          <TextInput
-            type="date"
-            label="Złożone do"
-            value={to}
-            min={from || undefined}
-            onChange={(event) => show({ to: event.currentTarget.value })}
-          />
-        </SimpleGrid>
-        {filtered && (
-          <Button
-            variant="subtle"
-            size="sm"
-            px="xs"
-            w="fit-content"
-            onClick={() => {
-              setSearch("");
-              router.replace(pathname, { scroll: false });
-            }}
-          >
-            Wyczyść filtry
-          </Button>
-        )}
-      </Stack>
 
-      <Stack gap="xs" component="section" aria-label="Eksport historii">
-        <Group gap="sm" wrap="wrap">
-          <Button
-            component="a"
-            href={orderExportHref(filters, "pdf")}
-            variant="light"
-            leftSection={<IconDownload size={18} aria-hidden="true" />}
-            disabled={list.total === 0}
-          >
-            Pobierz PDF
-          </Button>
-          <Button
-            component="a"
-            href={orderExportHref(filters, "csv")}
-            variant="light"
-            leftSection={<IconDownload size={18} aria-hidden="true" />}
-            disabled={list.total === 0}
-          >
-            Pobierz CSV
-          </Button>
-          <Button
-            variant="default"
-            onClick={() => void mail()}
-            loading={sending}
-            disabled={list.total === 0}
-            leftSection={<IconMail size={18} aria-hidden="true" />}
-          >
-            Wyślij PDF mailem
-          </Button>
-        </Group>
-        {notice && (
-          <Text role={notice.ok ? "status" : "alert"} fz="sm" c={notice.ok ? "success.8" : "danger.8"}>
-            {notice.text}
-          </Text>
-        )}
+        <Accordion chevronPosition="right" variant="separated" radius="md">
+          <Accordion.Item value="filters">
+            <Accordion.Control icon={<IconFilter size={18} aria-hidden="true" />}>
+              {filtered ? "Filtry i eksport (są aktywne)" : "Filtry i eksport"}
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="lg">
+                <Stack component="fieldset" gap="sm" m={0} p={0} style={{ border: 0 }}>
+                  <legend className="sr-only">Filtry historii zamówień</legend>
+                  <Chip.Group
+                    multiple={false}
+                    value={status ?? "all"}
+                    onChange={(value) => show({ status: value === "all" ? "" : value })}
+                  >
+                    <Group gap="xs" wrap="wrap" role="group" aria-label="Status zamówienia">
+                      {STATUS_OPTIONS.map((option) => (
+                        <Chip key={option.value} value={option.value} size="md" radius="md">
+                          {option.label}
+                        </Chip>
+                      ))}
+                    </Group>
+                  </Chip.Group>
+                  <SimpleGrid cols={2} spacing="sm">
+                    <TextInput
+                      type="date"
+                      label="Złożone od"
+                      value={from}
+                      max={to || undefined}
+                      onChange={(event) => show({ from: event.currentTarget.value })}
+                    />
+                    <TextInput
+                      type="date"
+                      label="Złożone do"
+                      value={to}
+                      min={from || undefined}
+                      onChange={(event) => show({ to: event.currentTarget.value })}
+                    />
+                  </SimpleGrid>
+                  {filtered && (
+                    <Button
+                      variant="subtle"
+                      size="sm"
+                      px="xs"
+                      w="fit-content"
+                      onClick={() => {
+                        setSearch("");
+                        router.replace(pathname, { scroll: false });
+                      }}
+                    >
+                      Wyczyść filtry
+                    </Button>
+                  )}
+                </Stack>
+
+                <Stack gap="xs" component="section" aria-label="Eksport historii">
+                  <Group gap="sm" wrap="wrap">
+                    <Button
+                      component="a"
+                      href={orderExportHref(filters, "pdf")}
+                      variant="light"
+                      leftSection={<IconDownload size={18} aria-hidden="true" />}
+                      disabled={list.total === 0}
+                    >
+                      Pobierz PDF
+                    </Button>
+                    <Button
+                      component="a"
+                      href={orderExportHref(filters, "csv")}
+                      variant="light"
+                      leftSection={<IconDownload size={18} aria-hidden="true" />}
+                      disabled={list.total === 0}
+                    >
+                      Pobierz CSV
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={() => void mail()}
+                      loading={sending}
+                      disabled={list.total === 0}
+                      leftSection={<IconMail size={18} aria-hidden="true" />}
+                    >
+                      Wyślij PDF mailem
+                    </Button>
+                  </Group>
+                  {notice && (
+                    <Text role={notice.ok ? "status" : "alert"} fz="sm" c={notice.ok ? "success.8" : "danger.8"}>
+                      {notice.text}
+                    </Text>
+                  )}
+                </Stack>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
       </Stack>
 
       {list.isPending && <LoadingState label="Ładowanie zamówień" height={300} />}

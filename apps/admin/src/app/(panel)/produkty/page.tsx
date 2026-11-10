@@ -11,7 +11,7 @@ export default async function ProductsPage({
       status="published"
       view={widok === "warianty" ? "variants" : "products"}
       initialSearch={szukaj ?? ""}
-      narrowed={dostepne === "1"}
+      narrowed={dostepne !== "0"}
     />
   );
 }

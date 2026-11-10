@@ -24,3 +24,8 @@ export const orderKeys = {
 export const sessionKeys = {
   me: ["session", "me"] as const,
 };
+
+export const userKeys = {
+  all: ["users"] as const,
+  list: () => [...userKeys.all, "list"] as const,
+};

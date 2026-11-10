@@ -1,6 +1,6 @@
 import { ActionIcon, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import Link from "next/link";
-import { isActive, NAV_ITEMS } from "./navItems";
+import { BOTTOM_NAV, isActive } from "./navItems";
 
 type BottomNavProps = {
   pathname: string;
@@ -9,8 +9,9 @@ type BottomNavProps = {
 /** Dolne menu na telefonie: najważniejsze miejsca pod kciukiem, aparat na środku. */
 const BottomNav = ({ pathname }: BottomNavProps) => (
   <Group component="ul" className="plain-list" h="100%" justify="space-around" wrap="nowrap" px="xs">
-    {NAV_ITEMS.map(({ href, label, icon: Icon, primary }) => {
-      const active = isActive(pathname, href);
+    {BOTTOM_NAV.map((item) => {
+      const { href, label, icon: Icon, primary } = item;
+      const active = isActive(pathname, item);
       return (
         <li key={href} style={{ flex: 1, display: "flex", justifyContent: "center" }}>
           {primary ? (
@@ -20,7 +21,7 @@ const BottomNav = ({ pathname }: BottomNavProps) => (
               size={56}
               radius="xl"
               aria-label={label}
-              style={{ marginTop: -24 }}
+              style={{ marginTop: -44 }}
             >
               <Icon size={28} aria-hidden="true" />
             </ActionIcon>
